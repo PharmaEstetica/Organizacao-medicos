@@ -24,7 +24,7 @@ export default function Buscar() {
         </p>
         
         <div className="relative mt-8 group">
-          <Search className="absolute left-4 top-4 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
           <Input 
             placeholder="Pesquisar por nome ou especialidade..." 
             className="pl-12 h-14 text-lg rounded-none border-b-2 border-x-0 border-t-0 border-border bg-transparent focus:border-primary focus:ring-0 px-0 transition-all placeholder:text-muted-foreground/50"
