@@ -4,7 +4,8 @@ import {
   prescribers,
   packagings,
   formulas,
-  orders,
+  csvOrders,
+  manualOrders,
   reports,
   pharmaceuticalForms,
   type Prescriber,
@@ -13,8 +14,10 @@ import {
   type InsertPackaging,
   type Formula,
   type InsertFormula,
-  type Order,
-  type InsertOrder,
+  type CsvOrder,
+  type InsertCsvOrder,
+  type ManualOrder,
+  type InsertManualOrder,
   type Report,
   type InsertReport,
   type PharmaceuticalForm,
@@ -39,10 +42,16 @@ export interface IStorage {
   updateFormula(id: number, formula: Partial<InsertFormula>): Promise<Formula | undefined>;
   deleteFormula(id: number): Promise<void>;
 
-  getOrders(): Promise<Order[]>;
-  getOrder(id: number): Promise<Order | undefined>;
-  createOrder(order: InsertOrder): Promise<Order>;
-  deleteOrder(id: number): Promise<void>;
+  getCsvOrders(): Promise<CsvOrder[]>;
+  createCsvOrder(order: InsertCsvOrder): Promise<CsvOrder>;
+  deleteCsvOrder(id: number): Promise<void>;
+  deleteAllCsvOrders(): Promise<void>;
+
+  getManualOrders(): Promise<ManualOrder[]>;
+  getManualOrder(id: number): Promise<ManualOrder | undefined>;
+  createManualOrder(order: InsertManualOrder): Promise<ManualOrder>;
+  updateManualOrder(id: number, order: Partial<InsertManualOrder>): Promise<ManualOrder | undefined>;
+  deleteManualOrder(id: number): Promise<void>;
 
   getReports(): Promise<Report[]>;
   getReport(id: number): Promise<Report | undefined>;
@@ -122,22 +131,44 @@ export class DatabaseStorage implements IStorage {
     await db.delete(formulas).where(eq(formulas.id, id));
   }
 
-  async getOrders(): Promise<Order[]> {
-    return await db.select().from(orders).orderBy(desc(orders.orderDate));
+  async getCsvOrders(): Promise<CsvOrder[]> {
+    return await db.select().from(csvOrders).orderBy(desc(csvOrders.orderDate));
   }
 
-  async getOrder(id: number): Promise<Order | undefined> {
-    const result = await db.select().from(orders).where(eq(orders.id, id));
+  async createCsvOrder(order: InsertCsvOrder): Promise<CsvOrder> {
+    const result = await db.insert(csvOrders).values(order).returning();
     return result[0];
   }
 
-  async createOrder(order: InsertOrder): Promise<Order> {
-    const result = await db.insert(orders).values(order).returning();
+  async deleteCsvOrder(id: number): Promise<void> {
+    await db.delete(csvOrders).where(eq(csvOrders.id, id));
+  }
+
+  async deleteAllCsvOrders(): Promise<void> {
+    await db.delete(csvOrders);
+  }
+
+  async getManualOrders(): Promise<ManualOrder[]> {
+    return await db.select().from(manualOrders).orderBy(desc(manualOrders.orderDate));
+  }
+
+  async getManualOrder(id: number): Promise<ManualOrder | undefined> {
+    const result = await db.select().from(manualOrders).where(eq(manualOrders.id, id));
     return result[0];
   }
 
-  async deleteOrder(id: number): Promise<void> {
-    await db.delete(orders).where(eq(orders.id, id));
+  async createManualOrder(order: InsertManualOrder): Promise<ManualOrder> {
+    const result = await db.insert(manualOrders).values(order).returning();
+    return result[0];
+  }
+
+  async updateManualOrder(id: number, order: Partial<InsertManualOrder>): Promise<ManualOrder | undefined> {
+    const result = await db.update(manualOrders).set(order).where(eq(manualOrders.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteManualOrder(id: number): Promise<void> {
+    await db.delete(manualOrders).where(eq(manualOrders.id, id));
   }
 
   async getReports(): Promise<Report[]> {

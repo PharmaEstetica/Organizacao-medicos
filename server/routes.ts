@@ -5,7 +5,8 @@ import {
   insertPrescriberSchema,
   insertPackagingSchema,
   insertFormulaSchema,
-  insertOrderSchema,
+  insertCsvOrderSchema,
+  insertManualOrderSchema,
   insertReportSchema,
   insertPharmaceuticalFormSchema,
 } from "@shared/schema";
@@ -135,34 +136,87 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/orders", async (req, res) => {
+  app.get("/api/csv-orders", async (req, res) => {
     try {
-      const orders = await storage.getOrders();
+      const orders = await storage.getCsvOrders();
       res.json(orders);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch orders" });
+      res.status(500).json({ error: "Failed to fetch CSV orders" });
     }
   });
 
-  app.post("/api/orders", async (req, res) => {
+  app.post("/api/csv-orders", async (req, res) => {
     try {
-      // Convert orderDate string to Date if needed
       const body = {
         ...req.body,
         orderDate: req.body.orderDate ? new Date(req.body.orderDate) : undefined,
       };
-      const validated = insertOrderSchema.parse(body);
-      const order = await storage.createOrder(validated);
+      const validated = insertCsvOrderSchema.parse(body);
+      const order = await storage.createCsvOrder(validated);
       res.status(201).json(order);
     } catch (error) {
-      console.error("Order validation error:", error);
-      res.status(400).json({ error: "Invalid order data" });
+      console.error("CSV Order validation error:", error);
+      res.status(400).json({ error: "Invalid CSV order data" });
     }
   });
 
-  app.delete("/api/orders/:id", async (req, res) => {
+  app.delete("/api/csv-orders", async (req, res) => {
     try {
-      await storage.deleteOrder(Number(req.params.id));
+      await storage.deleteAllCsvOrders();
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete CSV orders" });
+    }
+  });
+
+  app.delete("/api/csv-orders/:id", async (req, res) => {
+    try {
+      await storage.deleteCsvOrder(Number(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete CSV order" });
+    }
+  });
+
+  app.get("/api/manual-orders", async (req, res) => {
+    try {
+      const orders = await storage.getManualOrders();
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch manual orders" });
+    }
+  });
+
+  app.post("/api/manual-orders", async (req, res) => {
+    try {
+      const body = {
+        ...req.body,
+        orderDate: req.body.orderDate ? new Date(req.body.orderDate) : undefined,
+      };
+      const validated = insertManualOrderSchema.parse(body);
+      const order = await storage.createManualOrder(validated);
+      res.status(201).json(order);
+    } catch (error) {
+      console.error("Manual Order validation error:", error);
+      res.status(400).json({ error: "Invalid manual order data" });
+    }
+  });
+
+  app.patch("/api/manual-orders/:id", async (req, res) => {
+    try {
+      const order = await storage.updateManualOrder(Number(req.params.id), req.body);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      res.json(order);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update order" });
+    }
+  });
+
+  app.delete("/api/manual-orders/:id", async (req, res) => {
+    try {
+      await storage.deleteManualOrder(Number(req.params.id));
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete order" });

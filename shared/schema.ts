@@ -63,28 +63,44 @@ export const insertFormulaSchema = createInsertSchema(formulas).omit({
 export type InsertFormula = z.infer<typeof insertFormulaSchema>;
 export type Formula = typeof formulas.$inferSelect;
 
-export const orders = pgTable("orders", {
+export const csvOrders = pgTable("csv_orders", {
   id: serial("id").primaryKey(),
-  prescriberId: integer("prescriber_id").references(() => prescribers.id, { onDelete: 'cascade' }),
-  prescriberName: text("prescriber_name"),
+  prescriberName: text("prescriber_name").notNull(),
   orderNumbers: text("order_numbers").notNull(),
   orderDate: timestamp("order_date").notNull(),
-  status: varchar("status", { length: 20 }).notNull(),
+  status: varchar("status", { length: 30 }).notNull(),
   netValue: decimal("net_value", { precision: 10, scale: 2 }).notNull(),
   patient: text("patient"),
-  req: text("req"),
-  discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }),
-  paymentStatus: varchar("payment_status", { length: 20 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertOrderSchema = createInsertSchema(orders).omit({
+export const insertCsvOrderSchema = createInsertSchema(csvOrders).omit({
   id: true,
   createdAt: true,
 });
 
-export type InsertOrder = z.infer<typeof insertOrderSchema>;
-export type Order = typeof orders.$inferSelect;
+export type InsertCsvOrder = z.infer<typeof insertCsvOrderSchema>;
+export type CsvOrder = typeof csvOrders.$inferSelect;
+
+export const manualOrders = pgTable("manual_orders", {
+  id: serial("id").primaryKey(),
+  prescriberId: integer("prescriber_id").references(() => prescribers.id, { onDelete: 'cascade' }).notNull(),
+  orderNumbers: text("order_numbers").notNull(),
+  orderDate: timestamp("order_date").notNull(),
+  status: varchar("status", { length: 20 }).notNull(),
+  netValue: decimal("net_value", { precision: 10, scale: 2 }).notNull(),
+  req: text("req"),
+  paymentStatus: varchar("payment_status", { length: 20 }).default('pending'),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertManualOrderSchema = createInsertSchema(manualOrders).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertManualOrder = z.infer<typeof insertManualOrderSchema>;
+export type ManualOrder = typeof manualOrders.$inferSelect;
 
 export const reports = pgTable("reports", {
   id: serial("id").primaryKey(),

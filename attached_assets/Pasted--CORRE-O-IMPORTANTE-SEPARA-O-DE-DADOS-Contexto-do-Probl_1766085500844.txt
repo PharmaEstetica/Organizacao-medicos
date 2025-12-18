@@ -1,0 +1,95 @@
+## ⚠️ CORREÇÃO IMPORTANTE: SEPARAÇÃO DE DADOS
+
+### Contexto do Problema
+
+Existem **DUAS fontes de pedidos diferentes** que NÃO devem ser misturadas:
+
+1. **Pedidos do CSV (Relatórios)** → Vêm do upload de CSV na aba "Relatórios"
+2. **Pedidos Manuais (Parceiros)** → Criados manualmente na aba "Pedidos"
+
+---
+
+### Regra Obrigatória
+
+| Origem | Onde aparece | Onde NÃO aparece |
+|--------|--------------|------------------|
+| Upload CSV (Relatórios) | Apenas na aba **Relatórios** | ❌ NÃO aparece em "Pedidos" |
+| Criação manual | Apenas na aba **Pedidos** | ❌ NÃO aparece em "Relatórios" |
+
+---
+
+### Estrutura do Banco (DUAS TABELAS SEPARADAS)
+```sql
+-- Tabela 1: Pedidos importados via CSV (para relatórios)
+CREATE TABLE csv_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  report_id INTEGER NOT NULL,
+  prescriber_id INTEGER NOT NULL,
+  order_numbers TEXT NOT NULL,
+  order_date DATE NOT NULL,
+  status TEXT NOT NULL,
+  net_value REAL NOT NULL,
+  patient TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (report_id) REFERENCES reports(id),
+  FOREIGN KEY (prescriber_id) REFERENCES prescribers(id)
+);
+
+-- Tabela 2: Pedidos manuais (parceiros)
+CREATE TABLE manual_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  prescriber_id INTEGER NOT NULL,
+  order_numbers TEXT NOT NULL,
+  order_date DATE NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('no_carrinho', 'recusado', 'aprovado')),
+  net_value REAL NOT NULL,
+  payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid')),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (prescriber_id) REFERENCES prescribers(id)
+);
+```
+
+---
+
+### Fluxo Correto
+```
+ABA "RELATÓRIOS":
+├── Upload CSV
+├── Parsing e validação
+├── Dados salvos em: csv_orders
+├── Gera PDF por prescritor
+└── Exibe APENAS dados do CSV importado
+
+ABA "PEDIDOS":
+├── Botão "+ Novo Pedido"
+├── Formulário manual (Data, Parceiro, Req/Pedidos, Status, Valor)
+├── Dados salvos em: manual_orders
+├── Filtro por mês
+└── Exibe APENAS pedidos criados manualmente
+```
+
+---
+
+### Na Interface
+
+**Aba Relatórios:**
+- Área de upload CSV
+- Tabela mostrando preview dos dados do CSV importado
+- Botão "Gerar Relatórios"
+- Lista de relatórios gerados com download PDF
+
+**Aba Pedidos:**
+- Título: "Pedidos de Parceiros"
+- Subtítulo: "Gerencie os pedidos feitos manualmente"
+- Filtro por mês
+- Botão "+ Novo Pedido"
+- Tabela de Pedidos (apenas `manual_orders`)
+- Colunas: Data, Parceiro, Req/Pedidos, Status, Pagamento, Valor Líquido
+
+---
+
+### ⛔ O QUE NÃO FAZER
+
+- ❌ Não mostrar dados do CSV na aba "Pedidos"
+- ❌ Não misturar as duas tabelas em nenhuma consulta
+- ❌ Não usar a mesma tabela para os dois tipos de dados
