@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ReportsList } from "@/components/ReportsList";
 import { Button } from "@/components/ui/button";
 import { FileText, Loader2 } from "lucide-react";
@@ -16,6 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { CSVUpload } from "@/components/CSVUpload";
+import { useProtectedAccess } from "@/hooks/useProtectedAccess";
+import { PasswordModal } from "@/components/PasswordModal";
 
 export default function Relatorios() {
   const { data: prescribers = [] } = usePrescribers();
@@ -24,9 +26,24 @@ export default function Relatorios() {
   const createReport = useCreateReport();
   const { toast } = useToast();
   
+  const { 
+    isLocked, 
+    isProtected,
+    showPasswordModal, 
+    setShowPasswordModal, 
+    verifyPassword,
+    loading: accessLoading 
+  } = useProtectedAccess('relatorios');
+  
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState("importar");
+
+  useEffect(() => {
+    if (isProtected && isLocked && !accessLoading) {
+      setShowPasswordModal(true);
+    }
+  }, [isProtected, isLocked, accessLoading, setShowPasswordModal]);
 
   const availableMonths = Array.from(new Set(csvOrders.map(o => {
     const date = new Date(o.orderDate);
@@ -319,6 +336,25 @@ export default function Relatorios() {
   const handleReportGenerated = () => {
     setActiveTab("gerar");
   };
+
+  if (accessLoading) {
+    return (
+      <div className="container py-10 max-w-screen-2xl flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (isProtected && isLocked) {
+    return (
+      <PasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => window.history.back()}
+        onVerify={verifyPassword}
+        title="Digite a senha para acessar os Relatórios"
+      />
+    );
+  }
 
   return (
     <div className="container py-10 max-w-screen-2xl space-y-8">
