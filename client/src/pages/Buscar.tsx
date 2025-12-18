@@ -23,11 +23,11 @@ export default function Buscar() {
           Encontre rapidamente informações sobre médicos e parceiros cadastrados.
         </p>
         
-        <div className="relative mt-8 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+        <div className="mt-8 group border-b-2 border-border focus-within:border-primary transition-colors flex items-center gap-3 bg-transparent">
+          <Search className="h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors flex-shrink-0" />
           <Input 
             placeholder="Pesquisar por nome ou especialidade..." 
-            className="pl-12 h-14 text-lg rounded-none border-b-2 border-x-0 border-t-0 border-border bg-transparent focus:border-primary focus:ring-0 px-0 transition-all placeholder:text-muted-foreground/50"
+            className="h-14 text-lg rounded-none border-0 bg-transparent focus:border-0 focus:ring-0 px-0 transition-all placeholder:text-muted-foreground/50 flex-1"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
