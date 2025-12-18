@@ -37,9 +37,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { type Prescriber as ApiPrescriber } from "@/lib/api";
 import { usePackagings, useCreatePrescriber, useUpdatePrescriber } from "@/hooks/useApi";
-import { User, Stethoscope, FileBadge, Percent, Package, Check, ChevronsUpDown, Upload, X } from "lucide-react";
+import { User, Stethoscope, FileBadge, Percent, Package, Check, ChevronsUpDown, Upload, X, FileText, File } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+
+const attachmentSchema = z.object({
+  name: z.string(),
+  type: z.string(),
+  data: z.string(),
+});
 
 const formSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -52,17 +58,55 @@ const formSchema = z.object({
   }),
   linkedPackagings: z.array(z.number()).default([]),
   photoUrl: z.string().optional(),
+  attachments: z.array(attachmentSchema).default([]),
 });
+
+const compressImage = (file: File, maxWidth = 800, quality = 0.7): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressedDataUrl);
+      };
+      img.onerror = reject;
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
 
 interface PrescriberFormProps {
   onSuccess?: () => void;
   initialData?: ApiPrescriber;
 }
 
+type Attachment = { name: string; type: string; data: string; };
+
 export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) {
   const { toast } = useToast();
   const [openPackagings, setOpenPackagings] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photoUrl || null);
+  const [attachments, setAttachments] = useState<Attachment[]>(
+    (initialData?.attachments as Attachment[]) || []
+  );
   
   const { data: packagings = [] } = usePackagings();
   const createPrescriber = useCreatePrescriber();
@@ -77,6 +121,7 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
     bondType: initialData.bondType as "P" | "C" | "N",
     linkedPackagings: initialData.linkedPackagings || [],
     photoUrl: initialData.photoUrl || "",
+    attachments: (initialData?.attachments as Attachment[]) || [],
   } : {
     name: "",
     specialty: "",
@@ -86,9 +131,10 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
     bondType: "P" as const,
     linkedPackagings: [],
     photoUrl: "",
+    attachments: [],
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -101,18 +147,90 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64String = event.target?.result as string;
-      setPhotoPreview(base64String);
-      form.setValue("photoUrl", base64String);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressedImage = await compressImage(file);
+      setPhotoPreview(compressedImage);
+      form.setValue("photoUrl", compressedImage);
+    } catch {
+      toast({
+        title: "Erro",
+        description: "Erro ao processar a imagem.",
+        variant: "destructive",
+      });
+    }
   };
 
   const removePhoto = () => {
     setPhotoPreview(null);
     form.setValue("photoUrl", "");
+  };
+
+  const handleAttachmentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain',
+    ];
+
+    const newAttachments: Attachment[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          title: "Arquivo não suportado",
+          description: `${file.name} não é um tipo de arquivo permitido.`,
+          variant: "destructive",
+        });
+        continue;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "Arquivo muito grande",
+          description: `${file.name} excede o limite de 10MB.`,
+          variant: "destructive",
+        });
+        continue;
+      }
+
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => resolve(event.target?.result as string);
+        reader.readAsDataURL(file);
+      });
+
+      newAttachments.push({
+        name: file.name,
+        type: file.type,
+        data: base64,
+      });
+    }
+
+    const updatedAttachments = [...attachments, ...newAttachments];
+    setAttachments(updatedAttachments);
+    form.setValue("attachments", updatedAttachments);
+    e.target.value = '';
+  };
+
+  const removeAttachment = (index: number) => {
+    const updated = attachments.filter((_, i) => i !== index);
+    setAttachments(updated);
+    form.setValue("attachments", updated);
+  };
+
+  const getFileIcon = (type: string) => {
+    if (type.includes('pdf')) return <FileText className="h-4 w-4 text-red-500" />;
+    if (type.includes('word') || type.includes('document')) return <FileText className="h-4 w-4 text-blue-500" />;
+    if (type.includes('excel') || type.includes('sheet')) return <FileText className="h-4 w-4 text-green-500" />;
+    return <File className="h-4 w-4 text-muted-foreground" />;
   };
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -407,6 +525,61 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
                   Validação estrita do CRM durante o processamento.
                 </FormDescription>
               </div>
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="attachments"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Documentos Anexados</FormLabel>
+              <FormControl>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
+                      onChange={handleAttachmentChange}
+                      className="hidden"
+                      id="attachment-input"
+                      multiple
+                      data-testid="input-attachments"
+                    />
+                    <label
+                      htmlFor="attachment-input"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-sm border border-border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors"
+                    >
+                      <Upload className="h-4 w-4" />
+                      <span className="text-sm font-medium">Adicionar Documentos</span>
+                    </label>
+                    <p className="text-xs text-muted-foreground">PDF, Word, Excel ou TXT. Máx 10MB por arquivo</p>
+                  </div>
+                  
+                  {attachments.length > 0 && (
+                    <div className="border border-border rounded-sm divide-y divide-border">
+                      {attachments.map((attachment, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-muted/10">
+                          <div className="flex items-center gap-3">
+                            {getFileIcon(attachment.type)}
+                            <span className="text-sm font-medium truncate max-w-[200px]">{attachment.name}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeAttachment(index)}
+                            className="p-1 hover:bg-destructive/10 rounded-sm transition-colors"
+                            data-testid={`button-remove-attachment-${index}`}
+                          >
+                            <X className="h-4 w-4 text-destructive" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </FormControl>
+              <FormMessage />
             </FormItem>
           )}
         />

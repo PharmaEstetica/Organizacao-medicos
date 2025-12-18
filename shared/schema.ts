@@ -12,6 +12,7 @@ export const prescribers = pgTable("prescribers", {
   commissionPercentage: decimal("commission_percentage", { precision: 5, scale: 2 }).notNull(),
   bondType: varchar("bond_type", { length: 1 }).notNull(),
   photoUrl: text("photo_url"),
+  attachments: json("attachments").$type<{ name: string; type: string; data: string; }[]>().default([]),
   linkedPackagings: json("linked_packagings").$type<number[]>().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

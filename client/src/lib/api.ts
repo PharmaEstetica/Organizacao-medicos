@@ -9,6 +9,7 @@ export interface Prescriber {
   commissionPercentage: string;
   bondType: string;
   photoUrl?: string | null;
+  attachments?: { name: string; type: string; data: string; }[] | null;
   linkedPackagings: number[] | null;
   createdAt: string;
   updatedAt: string;
