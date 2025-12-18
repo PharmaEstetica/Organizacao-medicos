@@ -100,7 +100,7 @@ export default function Buscar() {
           <Search className="h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors flex-shrink-0" />
           <Input 
             placeholder="Digite o nome do médico, especialidade ou fórmula..." 
-            className="h-14 text-lg rounded-none border-0 bg-transparent focus:border-0 focus:ring-0 px-0 transition-all placeholder:text-muted-foreground/50 flex-1"
+            className="h-14 text-lg rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0 transition-all placeholder:text-muted-foreground/50 flex-1"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
