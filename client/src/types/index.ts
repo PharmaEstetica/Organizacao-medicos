@@ -82,5 +82,8 @@ export interface Packaging {
   name: string; // e.g., "Pote Branco"
   type: string; // e.g., "Pote", "Bisnaga"
   capacity: string; // e.g., "30g", "50ml"
+  image_url?: string;
+  has_sticker: boolean;
+  sticker_supplier?: string;
   createdAt: string;
 }

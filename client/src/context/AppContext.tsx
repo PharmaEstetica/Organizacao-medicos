@@ -76,8 +76,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   ]);
 
   const [packagings, setPackagings] = useState<Packaging[]>([
-    { id: 1, name: 'Pote Luxo Branco', type: 'Pote', capacity: '30g', createdAt: new Date().toISOString() },
-    { id: 2, name: 'Bisnaga Pump', type: 'Bisnaga', capacity: '50g', createdAt: new Date().toISOString() },
+    { id: 1, name: 'Pote Luxo Branco', type: 'Pote', capacity: '30g', has_sticker: false, createdAt: new Date().toISOString() },
+    { id: 2, name: 'Bisnaga Pump', type: 'Bisnaga', capacity: '50g', has_sticker: true, sticker_supplier: 'Gráfica Central', createdAt: new Date().toISOString() },
   ]);
 
   // Unique Pharmaceutical Forms list
