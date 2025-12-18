@@ -173,7 +173,7 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
 
           <FormField
             control={form.control}
-            name="bond_type"
+            name="bondType"
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Tipo de Vínculo</FormLabel>
@@ -197,7 +197,7 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
 
         <FormField
             control={form.control}
-            name="linked_packagings"
+            name="linkedPackagings"
             render={({ field }) => (
               <FormItem className="flex flex-col">
                 <FormLabel className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Embalagens Vinculadas</FormLabel>
@@ -288,7 +288,7 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
 
           <FormField
             control={form.control}
-            name="commission_percentage"
+            name="commissionPercentage"
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-xs uppercase font-bold text-muted-foreground tracking-wider">%</FormLabel>
@@ -303,12 +303,12 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
 
         <FormField
           control={form.control}
-          name="crm_required"
+          name="crmRequired"
           render={({ field }) => (
             <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-sm border border-border p-4 bg-muted/10">
               <FormControl>
                 <Checkbox
-                  checked={field.value}
+                  checked={field.value as boolean}
                   onCheckedChange={field.onChange}
                   className="rounded-xs mt-0.5"
                 />

@@ -2,8 +2,8 @@ import { useState } from "react";
 import { ReportsList } from "@/components/ReportsList";
 import { Button } from "@/components/ui/button";
 import { FileText, Loader2 } from "lucide-react";
-import { useApp } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
+import { usePrescribers, useOrders, useReports, useCreateReport } from "@/hooks/useApi";
 import {
   Select,
   SelectContent,
@@ -18,7 +18,10 @@ import autoTable from "jspdf-autotable";
 import { OrdersManager } from "@/components/OrdersManager";
 
 export default function Relatorios() {
-  const { prescribers, orders, generateReport, reports } = useApp();
+  const { data: prescribers = [] } = usePrescribers();
+  const { data: orders = [] } = useOrders();
+  const { data: reports = [] } = useReports();
+  const createReport = useCreateReport();
   const { toast } = useToast();
   
   // Reports State
@@ -33,10 +36,11 @@ export default function Relatorios() {
 
   const generatePrescriberPDF = (prescriber: any, effectiveOrders: any[], nonEffectiveOrders: any[], monthYear: string, download = false) => {
     const doc = new jsPDF();
-    const totalEffectiveValue = effectiveOrders.reduce((sum, o) => sum + o.netValue, 0);
-    const totalCommission = effectiveOrders.reduce((sum, o) => sum + (o.netValue * (prescriber.commission_percentage / 100)), 0);
-    const totalNonEffectiveValue = nonEffectiveOrders.reduce((sum, o) => sum + o.netValue, 0);
-    const totalNonEffectiveCommission = nonEffectiveOrders.reduce((sum, o) => sum + (o.netValue * (prescriber.commission_percentage / 100)), 0);
+    const commissionRate = parseFloat(prescriber.commissionPercentage);
+    const totalEffectiveValue = effectiveOrders.reduce((sum, o) => sum + parseFloat(o.netValue), 0);
+    const totalCommission = effectiveOrders.reduce((sum, o) => sum + (parseFloat(o.netValue) * (commissionRate / 100)), 0);
+    const totalNonEffectiveValue = nonEffectiveOrders.reduce((sum, o) => sum + parseFloat(o.netValue), 0);
+    const totalNonEffectiveCommission = nonEffectiveOrders.reduce((sum, o) => sum + (parseFloat(o.netValue) * (commissionRate / 100)), 0);
     
     const conversionRate = (effectiveOrders.length / (effectiveOrders.length + nonEffectiveOrders.length)) * 100 || 0;
 
@@ -57,16 +61,16 @@ export default function Relatorios() {
     
     currentY += 5;
 
-    const tableHeaders = [['Data', 'Status', 'Valor Líquido', 'Paciente', `${prescriber.commission_percentage}%`]];
+    const tableHeaders = [['Data', 'Status', 'Valor Líquido', 'Paciente', `${prescriber.commissionPercentage}%`]];
     
     const formatCurrency = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
     const effectiveRows = effectiveOrders.map(o => [
       new Date(o.orderDate).toLocaleDateString('pt-BR'),
       "Aprovado", // Hardcoded per requirement/image (mapped from 'Efetivado')
-      formatCurrency(o.netValue),
+      formatCurrency(parseFloat(o.netValue)),
       o.patient || o.prescriberName, // Fallback if patient missing
-      formatCurrency(o.netValue * (prescriber.commission_percentage / 100))
+      formatCurrency(parseFloat(o.netValue) * (commissionRate / 100))
     ]);
 
     // Footer Row for Effective
@@ -128,9 +132,9 @@ export default function Relatorios() {
         const nonEffectiveRows = nonEffectiveOrders.map(o => [
             new Date(o.orderDate).toLocaleDateString('pt-BR'),
             o.status === 'Não efetivado' ? 'Recusado' : o.status, // Map status
-            formatCurrency(o.netValue),
+            formatCurrency(parseFloat(o.netValue)),
             o.patient || o.prescriberName,
-            formatCurrency(o.netValue * (prescriber.commission_percentage / 100))
+            formatCurrency(parseFloat(o.netValue) * (commissionRate / 100))
         ]);
 
         const nonEffectiveFooter = [
@@ -207,22 +211,25 @@ export default function Relatorios() {
         const effectiveOrders = prescriberOrders.filter(o => o.status === 'Efetivado');
         const nonEffectiveOrders = prescriberOrders.filter(o => o.status === 'Não efetivado');
         
-        const totalEffectiveValue = effectiveOrders.reduce((sum, o) => sum + o.netValue, 0);
-        const commissionValue = totalEffectiveValue * (prescriber.commission_percentage / 100);
+        const totalEffectiveValue = effectiveOrders.reduce((sum, o) => sum + parseFloat(o.netValue), 0);
+        const commissionRate = parseFloat(prescriber.commissionPercentage);
+        const commissionValue = totalEffectiveValue * (commissionRate / 100);
         const expenses = 0;
         const finalBalance = commissionValue - expenses;
         const conversionRate = (effectiveOrders.length / prescriberOrders.length) * 100;
 
-        // Create report record
-        generateReport(prescriber.id, selectedMonth, {
-          total_orders: prescriberOrders.length,
-          effective_orders: effectiveOrders.length,
-          conversion_rate: conversionRate,
-          total_effective_value: totalEffectiveValue,
-          commission_value: commissionValue,
-          expenses: expenses,
-          final_balance: finalBalance,
-          pdf_path: "generated_on_demand" 
+        // Create report record via API
+        createReport.mutate({
+          prescriberId: prescriber.id,
+          referenceMonth: selectedMonth,
+          totalOrders: prescriberOrders.length,
+          effectiveOrders: effectiveOrders.length,
+          conversionRate: conversionRate.toString(),
+          totalEffectiveValue: totalEffectiveValue.toString(),
+          commissionValue: commissionValue.toString(),
+          expenses: expenses.toString(),
+          finalBalance: finalBalance.toString(),
+          pdfPath: "generated_on_demand" 
         });
       }
 
@@ -246,11 +253,11 @@ export default function Relatorios() {
     const report = reports.find(r => r.id === reportId);
     if (!report) return;
 
-    const prescriber = prescribers.find(p => p.id === report.prescriber_id);
+    const prescriber = prescribers.find(p => p.id === report.prescriberId);
     if (!prescriber) return;
 
     // Re-calculate orders for this specific report to regenerate the PDF
-    const [month, year] = report.reference_month.split('/').map(Number);
+    const [month, year] = report.referenceMonth.split('/').map(Number);
     const prescriberOrders = orders.filter(o => {
         const d = new Date(o.orderDate);
         return d.getMonth() + 1 === month && 

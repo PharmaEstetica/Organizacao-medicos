@@ -5,16 +5,16 @@ export interface Prescriber {
   name: string;
   specialty: string;
   crm: string | null;
-  crm_required: boolean;
-  commission_percentage: number;
-  bond_type: 'P' | 'C' | 'N';
-  created_at: string;
-  updated_at: string;
+  crmRequired: boolean;
+  commissionPercentage: number;
+  bondType: 'P' | 'C' | 'N';
+  createdAt: string;
+  updatedAt: string;
   // New fields for profile simulation
-  photo_url?: string;
-  formulas_count?: number;
-  packagings_count?: number;
-  linked_packagings?: number[];
+  photoUrl?: string;
+  formulasCount?: number;
+  packagingsCount?: number;
+  linkedPackagings?: number[];
 }
 
 export interface ParsedOrder {
@@ -41,30 +41,30 @@ export interface GroupedOrder {
 
 export interface Report {
   id: number;
-  prescriber_id: number;
-  reference_month: string;
-  total_orders: number;
-  effective_orders: number;
-  conversion_rate: number;
-  total_effective_value: number;
-  commission_value: number;
+  prescriberId: number;
+  referenceMonth: string;
+  totalOrders: number;
+  effectiveOrders: number;
+  conversionRate: number;
+  totalEffectiveValue: number;
+  commissionValue: number;
   expenses: number;
-  final_balance: number;
-  pdf_path: string | null;
-  created_at: string;
+  finalBalance: number;
+  pdfPath: string | null;
+  createdAt: string;
 }
 
 export interface Order {
   id: number;
-  report_id: number;
-  prescriber_id: number;
-  order_numbers: string;
-  order_date: string;
+  reportId: number;
+  prescriberId: number;
+  orderNumbers: string;
+  orderDate: string;
   status: string;
-  net_value: number;
+  netValue: number;
   patient: string | null;
-  payment_status: 'pending' | 'paid';
-  created_at: string;
+  paymentStatus: 'pending' | 'paid';
+  createdAt: string;
 }
 
 export interface Formula {
@@ -82,8 +82,8 @@ export interface Packaging {
   name: string; // e.g., "Pote Branco"
   type: string; // e.g., "Pote", "Bisnaga"
   capacity: string; // e.g., "30g", "50ml"
-  image_url?: string;
-  has_sticker: boolean;
-  sticker_supplier?: string;
+  imageUrl?: string;
+  hasSticker: boolean;
+  stickerSupplier?: string;
   createdAt: string;
 }
