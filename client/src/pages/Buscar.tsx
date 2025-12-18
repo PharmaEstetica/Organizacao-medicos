@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { usePrescribers, useFormulas } from "@/hooks/useApi";
 import type { Prescriber, Formula } from "@/lib/api";
@@ -154,7 +155,7 @@ export default function Buscar() {
                           <FlaskConical className="h-3.5 w-3.5" />
                           <span className="text-[10px] font-bold uppercase tracking-wider">Fórmulas</span>
                         </div>
-                        <p className="text-xl font-bold">{prescriber.formulas_count || getPrescriberFormulas(prescriber.id).length}</p>
+                        <p className="text-xl font-bold">{getPrescriberFormulas(prescriber.id).length}</p>
                       </div>
                       
                       <div className="space-y-1">
@@ -162,7 +163,7 @@ export default function Buscar() {
                           <Package className="h-3.5 w-3.5" />
                           <span className="text-[10px] font-bold uppercase tracking-wider">Embalagens</span>
                         </div>
-                        <p className="text-xl font-bold">{prescriber.packagings_count || 0}</p>
+                        <p className="text-xl font-bold">{prescriber.linkedPackagings?.length || 0}</p>
                       </div>
                     </div>
                   </CardContent>

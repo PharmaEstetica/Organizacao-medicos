@@ -1,0 +1,180 @@
+## 🔄 FLUXO COMPLETO: IMPORTAR CSV → VINCULAR CADASTRO → GERAR PDF
+
+### Renomeação
+
+- ❌ "Importar Pedidos" 
+- ✅ "Importar CSV"
+
+---
+
+### Fluxo Detalhado
+```
+1. Usuário arrasta/seleciona arquivo CSV
+           ↓
+2. Sistema faz parsing e validação do CSV
+           ↓
+3. Abre POP-UP: "Selecionar Cadastro Vinculado"
+   ├── Dropdown com lista de médicos/prescritores cadastrados
+   ├── Campo mostra: Nome + % Comissão
+   └── Botão: "Confirmar e Gerar Relatório"
+           ↓
+4. Ao selecionar o médico, sistema AUTOMATICAMENTE:
+   ├── Busca na tabela `manual_orders` (Pedidos de Parceiros)
+   ├── Filtra por: prescriber_id = médico selecionado
+   ├── Filtra por: mesmo mês/período do CSV
+   └── Se encontrar pedidos → SINALIZA no pop-up
+           ↓
+5. Se houver pedidos do parceiro:
+   ├── Exibe aviso: "⚠️ Este médico possui X pedido(s) de parceiros no valor de R$ XXX,XX"
+   ├── Lista os pedidos encontrados (REQ, Valor)
+   └── Checkbox: "Descontar do saldo final" (marcado por padrão)
+           ↓
+6. Usuário confirma → Sistema gera PDF
+           ↓
+7. PDF final inclui linha "COMPRAS" com desconto automático
+```
+
+---
+
+### Pop-up: "Selecionar Cadastro Vinculado"
+```
+┌─────────────────────────────────────────────────────────┐
+│  Vincular CSV ao Cadastro                          [X]  │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  Selecione o prescritor para calcular a comissão:       │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ BRUNO FRAUCHES SOUZA - 10%                    ▼ │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ ⚠️ Pedidos de Parceiros Encontrados             │    │
+│  │                                                  │    │
+│  │ REQ 8778 ...................... R$ 100,00       │    │
+│  │                                                  │    │
+│  │ Total a descontar: R$ 100,00                    │    │
+│  │                                                  │    │
+│  │ ☑ Descontar do saldo final                      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                         │
+│            [ Cancelar ]    [ Gerar Relatório ]          │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Lógica de Busca Automática
+```typescript
+// Ao selecionar prescritor no dropdown
+async function checkPartnerOrders(prescriberId: number, csvMonth: string) {
+  // Buscar pedidos manuais do mesmo prescritor e mês
+  const partnerOrders = await db.query(`
+    SELECT id, order_numbers, net_value, order_date
+    FROM manual_orders
+    WHERE prescriber_id = ?
+    AND strftime('%Y-%m', order_date) = ?
+  `, [prescriberId, csvMonth]);
+
+  if (partnerOrders.length > 0) {
+    const totalExpenses = partnerOrders.reduce((sum, o) => sum + o.net_value, 0);
+    return {
+      hasExpenses: true,
+      orders: partnerOrders,
+      totalExpenses
+    };
+  }
+
+  return { hasExpenses: false, orders: [], totalExpenses: 0 };
+}
+```
+
+---
+
+### Cálculo Final do PDF
+```typescript
+// Dados para geração do PDF
+const reportData = {
+  prescriber: selectedPrescriber,
+  effectiveOrders: [...],      // Do CSV
+  nonEffectiveOrders: [...],   // Do CSV
+  conversionRate: 45.45,       // Calculado
+  totalEffective: 4838.97,     // Soma dos efetivados
+  commission: 483.90,          // totalEffective × (% / 100)
+  
+  // ⬇️ PEDIDOS DE PARCEIROS (da tabela manual_orders)
+  expenses: 100.00,            // Total dos pedidos de parceiros
+  expenseDetails: [            // Para mostrar no PDF
+    { req: '8778', value: 100.00 }
+  ],
+  
+  finalBalance: 383.90         // commission - expenses
+};
+```
+
+---
+
+### PDF Final (Modelo a Copiar)
+
+**IMPORTANTE:** O Replit deve copiar EXATAMENTE o modelo do PDF anexado:
+```
+BRUNO FRAUCHES SOUZA                           CONVERSÃO 45.45%
+
+Pedidos efetivados
+┌──────────────┬──────────┬──────────────┬─────────────────────────────┬──────────┐
+│ Data         │ Status   │ Valor Líquido│ Paciente                    │ 10%      │
+├──────────────┼──────────┼──────────────┼─────────────────────────────┼──────────┤
+│ 01/12/2025   │ Aprovado │ R$ 74,09     │ MARCIA HELENA GIACOMINI...  │ R$ 7,41  │
+│ ...          │ ...      │ ...          │ ...                         │ ...      │
+├──────────────┴──────────┼──────────────┼─────────────────────────────┼──────────┤
+│                   TOTAL │ R$ 4.838,97  │                             │ R$ 483,90│
+├─────────────────────────┼──────────────┼─────────────────────────────┼──────────┤
+│      COMPRAS REQ 8778   │             │                              │-R$ 100,00│  ← VERMELHO
+├─────────────────────────┼──────────────┼─────────────────────────────┼──────────┤
+│                   SALDO │             │                              │ R$ 383,90│  ← NEGRITO
+└─────────────────────────┴──────────────┴─────────────────────────────┴──────────┘
+
+Pedidos não efetivados
+┌──────────────┬────────────┬──────────────┬───────────────────────────┬──────────┐
+│ Data         │ Status     │ Valor Líquido│ Paciente                  │ 10%      │
+├──────────────┼────────────┼──────────────┼───────────────────────────┼──────────┤
+│ 01/12/2025   │ Recusado   │ R$ 115,90    │ MARCIA HELENA GIACOMINI...│ R$ 11,59 │
+│ ...          │ No carrinho│ ...          │ ...                       │ ...      │
+├──────────────┴────────────┼──────────────┼───────────────────────────┼──────────┤
+│                     TOTAL │ R$ 7.534,69  │                           │ R$ 753,47│
+└───────────────────────────┴──────────────┴───────────────────────────┴──────────┘
+```
+
+---
+
+### Aviso para o Replit
+```
+⚠️ ATENÇÃO REPLIT:
+
+O usuário anexou um PDF modelo (Relatorio_BRUNO_FRAUCHES_SOUZA_202512.pdf).
+
+COPIE EXATAMENTE:
+- Layout da tabela
+- Formatação dos valores (R$ 1.234,56)
+- Linha "COMPRAS REQ XXXX" em vermelho/negativo
+- Linha "SALDO" em negrito
+- Seção "Pedidos não efetivados" abaixo
+- Cabeçalho com nome + CONVERSÃO XX.XX%
+- Coluna de porcentagem (10%, 8%, etc. conforme cadastro)
+
+O PDF anexado é a referência visual OBRIGATÓRIA.
+```
+
+---
+
+### Resumo do Fluxo
+
+| Etapa | Ação | Resultado |
+|-------|------|-----------|
+| 1 | Upload CSV | Parsing dos dados |
+| 2 | Pop-up abre | Usuário seleciona médico cadastrado |
+| 3 | Sistema busca | Verifica `manual_orders` do mesmo médico/mês |
+| 4 | Se encontrar | Mostra aviso + lista pedidos + total |
+| 5 | Usuário confirma | Gera PDF com desconto aplicado |
+| 6 | PDF final | Linha "COMPRAS" aparece com valor negativo |
