@@ -1,0 +1,86 @@
+## SISTEMA DE USUÁRIOS E PERMISSÕES (IMPLEMENTAR POR ÚLTIMO)
+
+### 4 Tipos de Usuários
+
+#### 1. ORÇAMENTISTA
+**Permissões:**
+- ✅ Visualizar cadastros
+- ✅ Pesquisar fórmulas, embalagens, etc.
+- ✅ Adicionar compras de "parceiros"
+- ✅ Usar todas as funções operacionais
+- ❌ Criar novos médicos/prescritores
+- ❌ Acesso ao financeiro/relatórios
+
+#### 2. LABORATÓRIO
+**Permissões:**
+- ✅ Criar fórmulas
+- ✅ Tudo que o Orçamentista pode fazer
+- ❌ Mexer no financeiro
+- ❌ Criar novos médicos/prescritores
+
+#### 3. VISITADOR
+**Permissões:**
+- ✅ Criar fórmulas
+- ✅ Ver e acessar tudo operacional
+- ❌ Acesso à área de "Relatórios"
+
+#### 4. ADM (Administrador)
+**Permissões:**
+- ✅ Acesso total a tudo
+- ✅ Acesso aos Relatórios
+- ✅ Único que pode APAGAR fórmula criada
+- ✅ Único que pode APAGAR cadastro finalizado (após "SALVAR")
+- ✅ Gerenciar funções/permissões dos colaboradores
+- ✅ Acesso direto via Replit
+
+---
+
+### Autenticação
+
+- Login simples com **e-mail + senha**
+- Sem recuperação de senha complexa (MVP)
+- Sessão persistente básica
+
+---
+
+### Tabela de Usuários (adicionar ao schema)
+```sql
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('orcamentista', 'laboratorio', 'visitador', 'adm')),
+  active BOOLEAN DEFAULT TRUE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+### Matriz de Permissões
+
+| Funcionalidade | Orçamentista | Laboratório | Visitador | ADM |
+|----------------|--------------|-------------|-----------|-----|
+| Ver cadastros | ✅ | ✅ | ✅ | ✅ |
+| Pesquisar fórmulas | ✅ | ✅ | ✅ | ✅ |
+| Criar fórmulas | ❌ | ✅ | ✅ | ✅ |
+| Adicionar compras parceiros | ✅ | ✅ | ✅ | ✅ |
+| Criar médicos/prescritores | ❌ | ❌ | ✅ | ✅ |
+| Acesso Relatórios | ❌ | ❌ | ❌ | ✅ |
+| Acesso Financeiro | ❌ | ❌ | ✅ | ✅ |
+| Apagar fórmulas salvas | ❌ | ❌ | ❌ | ✅ |
+| Apagar cadastros finalizados | ❌ | ❌ | ❌ | ✅ |
+| Gerenciar usuários | ❌ | ❌ | ❌ | ✅ |
+
+---
+
+### ⚠️ IMPORTANTE
+
+**Implementar esta parte POR ÚLTIMO** para evitar retrabalho.
+
+Ordem sugerida:
+1. Desenvolver todo o sistema sem autenticação
+2. Testar todas as funcionalidades
+3. Adicionar sistema de login
+4. Aplicar controle de permissões nas rotas e UI

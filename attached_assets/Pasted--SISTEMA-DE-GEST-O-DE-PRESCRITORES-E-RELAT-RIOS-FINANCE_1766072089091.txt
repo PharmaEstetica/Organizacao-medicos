@@ -1,0 +1,647 @@
+# SISTEMA DE GESTÃO DE PRESCRITORES E RELATÓRIOS FINANCEIROS
+
+## CONTEXTO DO PROJETO
+
+Você vai criar um sistema web completo para:
+- Cadastro de prescritores/médicos
+- Processamento de pedidos via upload de CSV
+- Geração de relatórios financeiros em PDF por prescritor
+- Controle mensal de pedidos e pagamentos
+
+## STACK TECNOLÓGICA
+
+- **Frontend**: React + Vite + TypeScript + TailwindCSS
+- **Backend**: Node.js + Express + TypeScript
+- **Banco de dados**: SQLite
+- **PDF**: pdfkit ou jspdf
+- **Validação**: Zod
+- **Ícones**: Lucide React
+
+---
+
+## ESTRUTURA DO PROJETO
+```
+/
+├── client/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Header.tsx
+│   │   │   ├── CSVUpload.tsx
+│   │   │   ├── PrescriberForm.tsx
+│   │   │   ├── PrescriberList.tsx
+│   │   │   ├── ReportsList.tsx
+│   │   │   └── MonthlyOrders.tsx
+│   │   ├── pages/
+│   │   │   ├── Cadastros.tsx
+│   │   │   ├── Relatorios.tsx
+│   │   │   └── PedidosDoMes.tsx
+│   │   ├── lib/
+│   │   │   ├── csvParser.ts
+│   │   │   └── orderGrouping.ts
+│   │   ├── hooks/
+│   │   ├── types/
+│   │   │   └── index.ts
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   └── index.html
+├── server/
+│   ├── index.ts
+│   ├── routes/
+│   │   ├── prescribers.ts
+│   │   ├── reports.ts
+│   │   └── orders.ts
+│   ├── services/
+│   │   └── pdfGenerator.ts
+│   └── db/
+│       └── schema.sql
+└── package.json
+```
+
+---
+
+## BANCO DE DADOS (SQLite)
+```sql
+-- Tabela de prescritores
+CREATE TABLE prescribers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  specialty TEXT NOT NULL,
+  crm TEXT,
+  crm_required BOOLEAN DEFAULT TRUE,
+  commission_percentage REAL NOT NULL,
+  bond_type TEXT NOT NULL CHECK (bond_type IN ('P', 'C', 'N')),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabela de relatórios
+CREATE TABLE reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  prescriber_id INTEGER NOT NULL,
+  reference_month TEXT NOT NULL,
+  total_orders INTEGER NOT NULL,
+  effective_orders INTEGER NOT NULL,
+  conversion_rate REAL NOT NULL,
+  total_effective_value REAL NOT NULL,
+  commission_value REAL NOT NULL,
+  expenses REAL DEFAULT 0,
+  final_balance REAL NOT NULL,
+  pdf_path TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (prescriber_id) REFERENCES prescribers(id)
+);
+
+-- Tabela de pedidos
+CREATE TABLE orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  report_id INTEGER NOT NULL,
+  prescriber_id INTEGER NOT NULL,
+  order_numbers TEXT NOT NULL,
+  order_date DATE NOT NULL,
+  status TEXT NOT NULL,
+  net_value REAL NOT NULL,
+  patient TEXT,
+  payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid')),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (report_id) REFERENCES reports(id),
+  FOREIGN KEY (prescriber_id) REFERENCES prescribers(id)
+);
+```
+
+---
+
+## TIPOS TypeScript
+```typescript
+// types/index.ts
+
+export interface Prescriber {
+  id: number;
+  name: string;
+  specialty: string;
+  crm: string | null;
+  crm_required: boolean;
+  commission_percentage: number;
+  bond_type: 'P' | 'C' | 'N';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ParsedOrder {
+  prescriberName: string;
+  orderNumber: string;
+  orderDate: Date;
+  status: string;
+  netValue: number;
+  patient?: string;
+}
+
+export interface GroupedOrder {
+  prescriberName: string;
+  orderNumbers: string[];
+  orderDate: Date;
+  status: 'Efetivado' | 'Não efetivado';
+  netValue: number;
+  patient?: string;
+}
+
+export interface Report {
+  id: number;
+  prescriber_id: number;
+  reference_month: string;
+  total_orders: number;
+  effective_orders: number;
+  conversion_rate: number;
+  total_effective_value: number;
+  commission_value: number;
+  expenses: number;
+  final_balance: number;
+  pdf_path: string | null;
+  created_at: string;
+}
+
+export interface Order {
+  id: number;
+  report_id: number;
+  prescriber_id: number;
+  order_numbers: string;
+  order_date: string;
+  status: string;
+  net_value: number;
+  patient: string | null;
+  payment_status: 'pending' | 'paid';
+  created_at: string;
+}
+```
+
+---
+
+## IMPLEMENTAÇÃO: csvParser.ts
+```typescript
+// client/src/lib/csvParser.ts
+import { z } from 'zod';
+import { ParsedOrder } from '../types';
+
+const REQUIRED_HEADERS = ['Nome', 'Número', 'Data', 'Status', 'Valor Líquido'];
+
+const OrderRowSchema = z.object({
+  Nome: z.string().min(1),
+  Número: z.string().min(1),
+  Data: z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/),
+  Status: z.string().min(1),
+  'Valor Líquido': z.string(),
+  Paciente: z.string().optional(),
+});
+
+function parseDate(dateStr: string): Date {
+  const [day, month, year] = dateStr.split('/').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function parseCurrency(value: string): number {
+  // "R$ 1.234,56" → 1234.56
+  const cleaned = value
+    .replace('R$', '')
+    .replace(/\s/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.');
+  return parseFloat(cleaned) || 0;
+}
+
+function normalizeStatus(status: string): 'Efetivado' | 'Não efetivado' {
+  return status.toLowerCase() === 'aprovado' ? 'Efetivado' : 'Não efetivado';
+}
+
+export function parseCSV(content: string): { data: ParsedOrder[]; errors: string[] } {
+  const errors: string[] = [];
+  const lines = content.trim().split('\n');
+  
+  if (lines.length < 2) {
+    return { data: [], errors: ['Arquivo CSV vazio ou sem dados'] };
+  }
+
+  const headers = lines[0].split(';').map(h => h.trim());
+  
+  // Validar headers obrigatórios
+  const missingHeaders = REQUIRED_HEADERS.filter(h => !headers.includes(h));
+  if (missingHeaders.length > 0) {
+    return { 
+      data: [], 
+      errors: [`Cabeçalhos obrigatórios ausentes: ${missingHeaders.join(', ')}`] 
+    };
+  }
+
+  const data: ParsedOrder[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(';').map(v => v.trim());
+    const row: Record<string, string> = {};
+    
+    headers.forEach((header, index) => {
+      row[header] = values[index] || '';
+    });
+
+    const validation = OrderRowSchema.safeParse(row);
+    
+    if (!validation.success) {
+      errors.push(`Linha ${i + 1}: ${validation.error.errors[0].message}`);
+      continue;
+    }
+
+    data.push({
+      prescriberName: row['Nome'],
+      orderNumber: row['Número'],
+      orderDate: parseDate(row['Data']),
+      status: normalizeStatus(row['Status']),
+      netValue: parseCurrency(row['Valor Líquido']),
+      patient: row['Paciente'] || undefined,
+    });
+  }
+
+  return { data, errors };
+}
+```
+
+---
+
+## IMPLEMENTAÇÃO: orderGrouping.ts
+```typescript
+// client/src/lib/orderGrouping.ts
+import { ParsedOrder, GroupedOrder } from '../types';
+
+function isSameDate(date1: Date, date2: Date): boolean {
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate()
+  );
+}
+
+export function unificarSequenciais(orders: ParsedOrder[]): GroupedOrder[] {
+  if (orders.length === 0) return [];
+
+  // Ordenar por: Data, Paciente, Status
+  const sorted = [...orders].sort((a, b) => {
+    const dateCompare = a.orderDate.getTime() - b.orderDate.getTime();
+    if (dateCompare !== 0) return dateCompare;
+    
+    const patientA = a.patient || '';
+    const patientB = b.patient || '';
+    const patientCompare = patientA.localeCompare(patientB);
+    if (patientCompare !== 0) return patientCompare;
+    
+    return a.status.localeCompare(b.status);
+  });
+
+  const grouped: GroupedOrder[] = [];
+  let current: GroupedOrder | null = null;
+
+  for (const order of sorted) {
+    const shouldUnify =
+      current &&
+      current.patient === (order.patient || undefined) &&
+      current.status === order.status &&
+      isSameDate(current.orderDate, order.orderDate);
+
+    if (shouldUnify && current) {
+      // Unificar: somar valores e concatenar números
+      current.orderNumbers.push(order.orderNumber);
+      current.netValue += order.netValue;
+    } else {
+      // Novo grupo
+      if (current) grouped.push(current);
+      current = {
+        prescriberName: order.prescriberName,
+        orderNumbers: [order.orderNumber],
+        orderDate: order.orderDate,
+        status: order.status as 'Efetivado' | 'Não efetivado',
+        netValue: order.netValue,
+        patient: order.patient,
+      };
+    }
+  }
+
+  if (current) grouped.push(current);
+  return grouped;
+}
+```
+
+---
+
+## IMPLEMENTAÇÃO: pdfGenerator.ts (DESIGN OBRIGATÓRIO)
+```typescript
+// server/services/pdfGenerator.ts
+import PDFDocument from 'pdfkit';
+import { GroupedOrder, Prescriber } from '../../client/src/types';
+
+const HEADER_COLOR = '#E6C8EB';
+const COLUMN_WIDTHS = {
+  data: 62,      // 22mm ≈ 62pt
+  status: 71,    // 25mm ≈ 71pt
+  valor: 85,     // 30mm ≈ 85pt
+  paciente: 198, // 70mm ≈ 198pt
+  comissao: 79,  // 28mm ≈ 79pt
+};
+
+interface ReportData {
+  prescriber: Prescriber;
+  effectiveOrders: GroupedOrder[];
+  nonEffectiveOrders: GroupedOrder[];
+  conversionRate: number;
+  totalEffective: number;
+  commission: number;
+  expenses: number;
+  finalBalance: number;
+}
+
+export function generatePDF(data: ReportData): Buffer {
+  const doc = new PDFDocument({ size: 'A4', margin: 40 });
+  const chunks: Buffer[] = [];
+
+  doc.on('data', (chunk) => chunks.push(chunk));
+
+  let y = 40;
+
+  // ========== CABEÇALHO ==========
+  doc
+    .rect(40, y, 515, 30)
+    .fill(HEADER_COLOR);
+
+  doc
+    .fillColor('#000000')
+    .fontSize(14)
+    .font('Helvetica-Bold')
+    .text(data.prescriber.name, 50, y + 8);
+
+  doc
+    .fontSize(10)
+    .font('Helvetica')
+    .text(`Conversão: ${data.conversionRate.toFixed(1)}%`, 400, y + 10);
+
+  y += 50;
+
+  // ========== TABELA EFETIVADOS ==========
+  y = drawTableHeader(doc, y, data.prescriber.commission_percentage);
+  
+  for (const order of data.effectiveOrders) {
+    if (y > 720) {
+      doc.addPage();
+      y = 40;
+      y = drawTableHeader(doc, y, data.prescriber.commission_percentage);
+    }
+    y = drawOrderRow(doc, y, order, data.prescriber.commission_percentage);
+  }
+
+  // ========== LINHA TOTAL ==========
+  y += 10;
+  doc
+    .font('Helvetica-Bold')
+    .fontSize(10)
+    .text('TOTAL', 50, y)
+    .text(formatCurrency(data.totalEffective), 350, y, { align: 'right', width: 80 })
+    .text(formatCurrency(data.commission), 450, y, { align: 'right', width: 70 });
+
+  // ========== LINHA COMPRAS (DESPESAS) ==========
+  y += 20;
+  doc
+    .fillColor('#CC0000')
+    .text('COMPRAS', 50, y)
+    .text(`-${formatCurrency(data.expenses)}`, 450, y, { align: 'right', width: 70 });
+
+  // ========== LINHA SALDO ==========
+  y += 20;
+  doc
+    .fillColor('#000000')
+    .font('Helvetica-Bold')
+    .fontSize(12)
+    .text('SALDO', 50, y)
+    .text(formatCurrency(data.finalBalance), 450, y, { align: 'right', width: 70 });
+
+  // ========== TABELA NÃO EFETIVADOS ==========
+  if (data.nonEffectiveOrders.length > 0) {
+    y += 40;
+    
+    if (y > 650) {
+      doc.addPage();
+      y = 40;
+    }
+
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(11)
+      .fillColor('#666666')
+      .text('Pedidos Não Efetivados', 50, y);
+
+    y += 20;
+    y = drawTableHeader(doc, y, data.prescriber.commission_percentage, true);
+
+    for (const order of data.nonEffectiveOrders) {
+      if (y > 720) {
+        doc.addPage();
+        y = 40;
+        y = drawTableHeader(doc, y, data.prescriber.commission_percentage, true);
+      }
+      y = drawOrderRow(doc, y, order, data.prescriber.commission_percentage, true);
+    }
+  }
+
+  doc.end();
+
+  return Buffer.concat(chunks);
+}
+
+function drawTableHeader(
+  doc: PDFKit.PDFDocument, 
+  y: number, 
+  commissionPct: number,
+  isNonEffective = false
+): number {
+  const headers = ['Data', 'Status', 'Valor Líquido', 'Paciente'];
+  if (!isNonEffective) headers.push(`${commissionPct}% Comissão`);
+
+  doc
+    .rect(40, y, 515, 20)
+    .fill('#F0F0F0');
+
+  doc
+    .fillColor('#333333')
+    .fontSize(8)
+    .font('Helvetica-Bold');
+
+  let x = 50;
+  const widths = [
+    COLUMN_WIDTHS.data,
+    COLUMN_WIDTHS.status,
+    COLUMN_WIDTHS.valor,
+    COLUMN_WIDTHS.paciente,
+  ];
+  if (!isNonEffective) widths.push(COLUMN_WIDTHS.comissao);
+
+  headers.forEach((header, i) => {
+    doc.text(header, x, y + 6, { width: widths[i] });
+    x += widths[i];
+  });
+
+  return y + 25;
+}
+
+function drawOrderRow(
+  doc: PDFKit.PDFDocument,
+  y: number,
+  order: GroupedOrder,
+  commissionPct: number,
+  isNonEffective = false
+): number {
+  doc
+    .fillColor('#000000')
+    .fontSize(7)
+    .font('Helvetica');
+
+  const dateStr = order.orderDate.toLocaleDateString('pt-BR');
+  const commission = order.netValue * (commissionPct / 100);
+
+  let x = 50;
+  doc.text(dateStr, x, y, { width: COLUMN_WIDTHS.data });
+  x += COLUMN_WIDTHS.data;
+
+  doc.text(order.status, x, y, { width: COLUMN_WIDTHS.status });
+  x += COLUMN_WIDTHS.status;
+
+  doc.text(formatCurrency(order.netValue), x, y, { 
+    width: COLUMN_WIDTHS.valor, 
+    align: 'right' 
+  });
+  x += COLUMN_WIDTHS.valor;
+
+  doc.text(order.patient || '-', x, y, { width: COLUMN_WIDTHS.paciente });
+  x += COLUMN_WIDTHS.paciente;
+
+  if (!isNonEffective) {
+    doc.text(formatCurrency(commission), x, y, { 
+      width: COLUMN_WIDTHS.comissao, 
+      align: 'right' 
+    });
+  }
+
+  return y + 15;
+}
+
+function formatCurrency(value: number): string {
+  return value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+}
+```
+
+---
+
+## ROTAS DO BACKEND
+
+### POST /api/prescribers
+Criar novo prescritor com validação de campos obrigatórios.
+
+### GET /api/prescribers
+Listar todos os prescritores.
+
+### PUT /api/prescribers/:id
+Atualizar prescritor.
+
+### DELETE /api/prescribers/:id
+Remover prescritor (validar se não há relatórios vinculados).
+
+### POST /api/reports/generate
+Receber CSV processado, agrupar por prescritor, calcular métricas, gerar PDFs e salvar no banco.
+
+### GET /api/reports
+Listar relatórios com filtros (prescritor, mês).
+
+### GET /api/reports/:id/pdf
+Download do PDF do relatório.
+
+### GET /api/orders/monthly
+Listar pedidos do mês atual, agrupados por prescritor.
+
+### PATCH /api/orders/:id/payment-status
+Alternar status de pagamento (pending ↔ paid).
+
+---
+
+## NAVEGAÇÃO DO SISTEMA
+
+3 páginas principais:
+
+1. **Cadastros** (`/cadastros`)
+   - Formulário de prescritor
+   - Lista de prescritores cadastrados
+   - Edição/exclusão
+
+2. **Relatórios** (`/relatorios`)
+   - Upload de CSV
+   - Preview dos dados parseados
+   - Botão "Gerar Relatórios"
+   - Lista de relatórios gerados com download PDF
+
+3. **Pedidos do Mês** (`/pedidos`)
+   - Filtro por prescritor
+   - Lista de pedidos do mês atual
+   - Pedidos pendentes no topo com destaque visual
+   - Toggle de status de pagamento
+
+---
+
+## FLUXO COMPLETO
+```
+1. Usuário acessa /cadastros
+2. Cadastra prescritores com nome, especialidade, CRM, comissão, tipo de vínculo
+3. Usuário acessa /relatorios
+4. Faz upload do CSV
+5. Sistema valida headers e parseia dados
+6. Sistema agrupa pedidos sequenciais
+7. Sistema agrupa por prescritor
+8. Sistema calcula: conversão, comissão, saldo
+9. Sistema gera 1 PDF por prescritor
+10. Sistema salva relatório e pedidos no banco
+11. Usuário faz download dos PDFs
+12. Usuário acessa /pedidos
+13. Visualiza pedidos do mês
+14. Marca pedidos como pagos
+```
+
+---
+
+## VALIDAÇÕES IMPORTANTES
+
+- CSV: bloquear processamento se faltar cabeçalho obrigatório
+- Prescritor: CRM obrigatório apenas se checkbox desmarcado
+- Comissão: aceitar apenas números positivos
+- Tipo de vínculo: apenas P, C ou N
+- Data do pedido: formato DD/MM/AAAA
+- Valor: converter "R$ 1.234,56" para número
+
+---
+
+## FEEDBACK VISUAL
+
+- Sucesso: toast verde
+- Erro: toast vermelho com mensagem clara
+- Loading: spinner durante processamento
+- Campos inválidos: borda vermelha + mensagem abaixo
+
+---
+
+## PRIORIDADE DE IMPLEMENTAÇÃO
+
+1. Banco de dados (schema)
+2. Backend: rotas de prescritores
+3. Frontend: página de cadastros
+4. Backend: rota de geração de relatório
+5. Lib: csvParser.ts
+6. Lib: orderGrouping.ts
+7. Service: pdfGenerator.ts
+8. Frontend: página de relatórios
+9. Backend: rotas de pedidos
+10. Frontend: página de pedidos do mês
+
+---
+
+Comece implementando o schema do banco de dados e as rotas de prescritores.
