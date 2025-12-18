@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { ReportsList } from "@/components/ReportsList";
 import { Button } from "@/components/ui/button";
 import { FileText, Loader2 } from "lucide-react";
@@ -16,7 +16,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { CSVUpload } from "@/components/CSVUpload";
-import { MonthlyOrders } from "@/components/MonthlyOrders";
 
 export default function Relatorios() {
   const { data: prescribers = [] } = usePrescribers();
@@ -27,21 +26,28 @@ export default function Relatorios() {
   
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState("importar");
 
   const availableMonths = Array.from(new Set(csvOrders.map(o => {
     const date = new Date(o.orderDate);
     return `${date.getMonth() + 1}/${date.getFullYear()}`;
   }))).sort();
 
-  const generatePrescriberPDF = (prescriber: any, effectiveOrders: any[], nonEffectiveOrders: any[], monthYear: string, download = false) => {
+  const formatCurrency = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+  const generatePrescriberPDF = (prescriber: any, effectiveOrders: any[], nonEffectiveOrders: any[], monthYear: string, expenses: number = 0, expenseDetails: { req: string; value: number }[] = []) => {
     const doc = new jsPDF();
     const commissionRate = parseFloat(prescriber.commissionPercentage);
     const totalEffectiveValue = effectiveOrders.reduce((sum, o) => sum + parseFloat(o.netValue), 0);
-    const totalCommission = effectiveOrders.reduce((sum, o) => sum + (parseFloat(o.netValue) * (commissionRate / 100)), 0);
+    const totalCommission = totalEffectiveValue * (commissionRate / 100);
     const totalNonEffectiveValue = nonEffectiveOrders.reduce((sum, o) => sum + parseFloat(o.netValue), 0);
-    const totalNonEffectiveCommission = nonEffectiveOrders.reduce((sum, o) => sum + (parseFloat(o.netValue) * (commissionRate / 100)), 0);
+    const totalNonEffectiveCommission = totalNonEffectiveValue * (commissionRate / 100);
     
-    const conversionRate = (effectiveOrders.length / (effectiveOrders.length + nonEffectiveOrders.length)) * 100 || 0;
+    const conversionRate = (effectiveOrders.length + nonEffectiveOrders.length) > 0
+      ? (effectiveOrders.length / (effectiveOrders.length + nonEffectiveOrders.length)) * 100 
+      : 0;
+
+    const finalBalance = totalCommission - expenses;
 
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
@@ -59,21 +65,37 @@ export default function Relatorios() {
     currentY += 5;
 
     const tableHeaders = [['Data', 'Status', 'Valor Líquido', 'Paciente', `${prescriber.commissionPercentage}%`]];
-    
-    const formatCurrency = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
     const effectiveRows = effectiveOrders.map(o => [
       new Date(o.orderDate).toLocaleDateString('pt-BR'),
       "Aprovado",
       formatCurrency(parseFloat(o.netValue)),
-      o.patient || o.prescriberName,
+      (o.patient || o.prescriberName || '').substring(0, 40),
       formatCurrency(parseFloat(o.netValue) * (commissionRate / 100))
     ]);
 
-    const effectiveFooter = [
+    const effectiveFooter: (string | { content: string; styles: any })[][] = [
       ['TOTAL', '', formatCurrency(totalEffectiveValue), '', formatCurrency(totalCommission)],
-      ['SALDO', '', '', '', formatCurrency(totalCommission)]
     ];
+
+    if (expenses > 0 && expenseDetails.length > 0) {
+      const reqNumbers = expenseDetails.map(e => e.req).join(', ');
+      effectiveFooter.push([
+        { content: 'COMPRAS', styles: { textColor: [200, 0, 0] } },
+        { content: `REQ ${reqNumbers}`, styles: { textColor: [200, 0, 0] } },
+        '',
+        '',
+        { content: `- ${formatCurrency(expenses)}`, styles: { textColor: [200, 0, 0] } }
+      ]);
+    }
+
+    effectiveFooter.push([
+      { content: 'SALDO', styles: { fontStyle: 'bold' } },
+      '',
+      '',
+      '',
+      { content: formatCurrency(finalBalance), styles: { fontStyle: 'bold' } }
+    ]);
 
     autoTable(doc, {
       startY: currentY,
@@ -96,7 +118,7 @@ export default function Relatorios() {
       footStyles: {
         fillColor: [255, 255, 255],
         textColor: [0, 0, 0],
-        fontStyle: 'bold',
+        fontStyle: 'normal',
         fontSize: 10,
         cellPadding: 3,
       },
@@ -120,9 +142,9 @@ export default function Relatorios() {
 
         const nonEffectiveRows = nonEffectiveOrders.map(o => [
             new Date(o.orderDate).toLocaleDateString('pt-BR'),
-            o.status === 'Não efetivado' ? 'Recusado' : o.status,
+            o.status,
             formatCurrency(parseFloat(o.netValue)),
-            o.patient || o.prescriberName,
+            (o.patient || o.prescriberName || '').substring(0, 40),
             formatCurrency(parseFloat(o.netValue) * (commissionRate / 100))
         ]);
 
@@ -165,11 +187,7 @@ export default function Relatorios() {
         });
     }
 
-    if (download) {
-        doc.save(`Relatorio_${prescriber.name.replace(/\s+/g, '_')}_${monthYear.replace('/', '-')}.pdf`);
-    }
-    
-    return doc;
+    doc.save(`Relatorio_${prescriber.name.replace(/\s+/g, '_')}_${monthYear.replace('/', '')}.pdf`);
   };
 
   const handleGenerateAll = async () => {
@@ -255,12 +273,18 @@ export default function Relatorios() {
     const effectiveOrders = prescriberOrders.filter(o => o.status === 'Aprovado');
     const nonEffectiveOrders = prescriberOrders.filter(o => o.status !== 'Aprovado');
 
+    const expenses = parseFloat(report.expenses) || 0;
+
     toast({
         title: "Download Iniciado",
         description: `Baixando relatório de ${prescriber.name}...`,
     });
     
-    generatePrescriberPDF(prescriber, effectiveOrders, nonEffectiveOrders, report.referenceMonth, true);
+    generatePrescriberPDF(prescriber, effectiveOrders, nonEffectiveOrders, report.referenceMonth, expenses, []);
+  };
+
+  const handleReportGenerated = () => {
+    setActiveTab("gerar");
   };
 
   return (
@@ -275,23 +299,22 @@ export default function Relatorios() {
         </p>
       </div>
 
-      <Tabs defaultValue="importar" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 max-w-[400px] mb-8">
           <TabsTrigger value="importar" data-testid="tab-importar">Importar CSV</TabsTrigger>
           <TabsTrigger value="gerar" data-testid="tab-gerar">Gerar Relatórios</TabsTrigger>
         </TabsList>
 
         <TabsContent value="importar" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <CSVUpload />
-          <MonthlyOrders />
+          <CSVUpload onReportGenerated={handleReportGenerated} />
         </TabsContent>
 
         <TabsContent value="gerar" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <Card className="border-border">
             <CardHeader>
-              <CardTitle>Gerar Relatórios Mensais</CardTitle>
+              <CardTitle>Gerar Relatórios em Lote</CardTitle>
               <CardDescription>
-                Selecione o mês para calcular comissões e gerar os demonstrativos para todos os parceiros.
+                Selecione o mês para calcular comissões e gerar os demonstrativos para todos os parceiros de uma vez.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex items-end gap-4">

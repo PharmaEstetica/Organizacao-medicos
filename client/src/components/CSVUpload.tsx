@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, AlertCircle, CheckCircle2, Download, Trash2, AlertTriangle } from 'lucide-react';
+import { Upload, AlertCircle, CheckCircle2, Download, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -22,12 +22,10 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { parseCSV } from '@/lib/csvParser';
 import { unificarSequenciais } from '@/lib/orderGrouping';
-import { useCreateCsvOrder, useDeleteAllCsvOrders, usePrescribers } from '@/hooks/useApi';
+import { useCreateCsvOrder, useDeleteAllCsvOrders, usePrescribers, useCreateReport } from '@/hooks/useApi';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { api, type Prescriber, type ManualOrder, type CsvOrder } from '@/lib/api';
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { api, type Prescriber, type ManualOrder } from '@/lib/api';
 
 interface ParsedOrder {
   prescriberName: string;
@@ -39,11 +37,16 @@ interface ParsedOrder {
   patient?: string;
 }
 
-export function CSVUpload() {
+interface CSVUploadProps {
+  onReportGenerated?: () => void;
+}
+
+export function CSVUpload({ onReportGenerated }: CSVUploadProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const createCsvOrder = useCreateCsvOrder();
   const deleteAllCsvOrders = useDeleteAllCsvOrders();
+  const createReport = useCreateReport();
   const { data: prescribers = [] } = usePrescribers();
   const { toast } = useToast();
 
@@ -55,6 +58,7 @@ export function CSVUpload() {
   const [shouldDeductPartnerOrders, setShouldDeductPartnerOrders] = useState(true);
   const [csvMonth, setCsvMonth] = useState<{ month: number; year: number } | null>(null);
   const [isLoadingPartnerOrders, setIsLoadingPartnerOrders] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setError(null);
@@ -132,168 +136,6 @@ export function CSVUpload() {
     return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const generatePrescriberPDF = (
-    prescriber: Prescriber,
-    effectiveOrders: ParsedOrder[],
-    nonEffectiveOrders: ParsedOrder[],
-    expenses: { orders: ManualOrder[]; total: number; shouldDeduct: boolean }
-  ) => {
-    const doc = new jsPDF();
-    const commissionRate = parseFloat(prescriber.commissionPercentage);
-    const totalEffectiveValue = effectiveOrders.reduce((sum, o) => sum + o.netValue, 0);
-    const totalCommission = totalEffectiveValue * (commissionRate / 100);
-    const totalNonEffectiveValue = nonEffectiveOrders.reduce((sum, o) => sum + o.netValue, 0);
-    const totalNonEffectiveCommission = totalNonEffectiveValue * (commissionRate / 100);
-    
-    const conversionRate = effectiveOrders.length + nonEffectiveOrders.length > 0 
-      ? (effectiveOrders.length / (effectiveOrders.length + nonEffectiveOrders.length)) * 100 
-      : 0;
-
-    const deductedExpenses = expenses.shouldDeduct ? expenses.total : 0;
-    const finalBalance = totalCommission - deductedExpenses;
-
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text(prescriber.name.toUpperCase(), 14, 20);
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(`CONVERSÃO ${conversionRate.toFixed(2)}%`, 195, 20, { align: "right" });
-
-    let currentY = 35;
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Pedidos efetivados", 14, currentY);
-    
-    currentY += 5;
-
-    const tableHeaders = [['Data', 'Status', 'Valor Líquido', 'Paciente', `${prescriber.commissionPercentage}%`]];
-
-    const effectiveRows = effectiveOrders.map(o => [
-      o.orderDate.toLocaleDateString('pt-BR'),
-      "Aprovado",
-      formatCurrency(o.netValue),
-      (o.patient || o.prescriberName).substring(0, 40),
-      formatCurrency(o.netValue * (commissionRate / 100))
-    ]);
-
-    const effectiveFooter: (string | { content: string; styles: any })[][] = [
-      ['TOTAL', '', formatCurrency(totalEffectiveValue), '', formatCurrency(totalCommission)],
-    ];
-
-    if (expenses.orders.length > 0 && expenses.shouldDeduct) {
-      const reqNumbers = expenses.orders.map(o => o.req || o.orderNumbers).join(', ');
-      effectiveFooter.push([
-        { content: `COMPRAS`, styles: { textColor: [200, 0, 0] } },
-        { content: `REQ ${reqNumbers}`, styles: { textColor: [200, 0, 0] } },
-        '',
-        '',
-        { content: `- ${formatCurrency(deductedExpenses)}`, styles: { textColor: [200, 0, 0] } }
-      ]);
-    }
-
-    effectiveFooter.push([
-      { content: 'SALDO', styles: { fontStyle: 'bold' } },
-      '',
-      '',
-      '',
-      { content: formatCurrency(finalBalance), styles: { fontStyle: 'bold' } }
-    ]);
-
-    autoTable(doc, {
-      startY: currentY,
-      head: tableHeaders,
-      body: effectiveRows,
-      foot: effectiveFooter,
-      theme: 'plain',
-      headStyles: {
-        fillColor: [230, 208, 222],
-        textColor: [0, 0, 0],
-        fontStyle: 'bold',
-        fontSize: 10,
-        cellPadding: 3,
-      },
-      bodyStyles: {
-        fontSize: 9,
-        textColor: [0, 0, 0],
-        cellPadding: 3,
-      },
-      footStyles: {
-        fillColor: [255, 255, 255],
-        textColor: [0, 0, 0],
-        fontStyle: 'normal',
-        fontSize: 10,
-        cellPadding: 3,
-      },
-      columnStyles: {
-        0: { cellWidth: 25 },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 35, halign: 'right' },
-        3: { cellWidth: 'auto' },
-        4: { cellWidth: 30, halign: 'right' },
-      },
-    });
-
-    // @ts-ignore
-    currentY = doc.lastAutoTable.finalY + 20;
-
-    if (nonEffectiveOrders.length > 0) {
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text("Pedidos não efetivados", 14, currentY);
-      currentY += 5;
-
-      const nonEffectiveRows = nonEffectiveOrders.map(o => [
-        o.orderDate.toLocaleDateString('pt-BR'),
-        o.originalStatus || o.status,
-        formatCurrency(o.netValue),
-        (o.patient || o.prescriberName).substring(0, 40),
-        formatCurrency(o.netValue * (commissionRate / 100))
-      ]);
-
-      const nonEffectiveFooter = [
-        ['TOTAL', '', formatCurrency(totalNonEffectiveValue), '', formatCurrency(totalNonEffectiveCommission)]
-      ];
-
-      autoTable(doc, {
-        startY: currentY,
-        head: tableHeaders,
-        body: nonEffectiveRows,
-        foot: nonEffectiveFooter,
-        theme: 'plain',
-        headStyles: {
-          fillColor: [230, 208, 222],
-          textColor: [0, 0, 0],
-          fontStyle: 'bold',
-          fontSize: 10,
-          cellPadding: 3,
-        },
-        bodyStyles: {
-          fontSize: 9,
-          textColor: [0, 0, 0],
-          cellPadding: 3,
-        },
-        footStyles: {
-          fillColor: [255, 255, 255],
-          textColor: [0, 0, 0],
-          fontStyle: 'bold',
-          fontSize: 10,
-          cellPadding: 3,
-        },
-        columnStyles: {
-          0: { cellWidth: 25 },
-          1: { cellWidth: 30 },
-          2: { cellWidth: 35, halign: 'right' },
-          3: { cellWidth: 'auto' },
-          4: { cellWidth: 30, halign: 'right' },
-        },
-      });
-    }
-
-    const monthYear = csvMonth ? `${String(csvMonth.month).padStart(2, '0')}${csvMonth.year}` : '';
-    doc.save(`Relatorio_${prescriber.name.replace(/\s+/g, '_')}_${monthYear}.pdf`);
-  };
-
   const handleGenerateReport = async () => {
     if (!selectedPrescriberId) {
       toast({
@@ -307,13 +149,15 @@ export function CSVUpload() {
     const prescriber = prescribers.find(p => p.id === Number(selectedPrescriberId));
     if (!prescriber) return;
 
+    setShowPrescriberDialog(false);
+    setIsGenerating(true);
+
     try {
       await deleteAllCsvOrders.mutateAsync();
     } catch (err) {
     }
 
     let successCount = 0;
-    let errorCount = 0;
     
     for (const order of parsedOrders) {
       try {
@@ -327,31 +171,55 @@ export function CSVUpload() {
         });
         successCount++;
       } catch (err) {
-        errorCount++;
       }
     }
 
-    const effectiveOrders = parsedOrders.filter(o => o.status === 'Aprovado');
-    const nonEffectiveOrders = parsedOrders.filter(o => o.status !== 'Aprovado');
+    const effectiveOrders = parsedOrders.filter(o => o.status === 'Efetivado');
+    const nonEffectiveOrders = parsedOrders.filter(o => o.status === 'Não efetivado');
+    
+    const commissionRate = parseFloat(prescriber.commissionPercentage);
+    const totalEffectiveValue = effectiveOrders.reduce((sum, o) => sum + o.netValue, 0);
+    const totalCommission = totalEffectiveValue * (commissionRate / 100);
+    const deductedExpenses = shouldDeductPartnerOrders ? partnerOrdersTotal : 0;
+    const finalBalance = totalCommission - deductedExpenses;
+    const conversionRate = parsedOrders.length > 0 
+      ? (effectiveOrders.length / parsedOrders.length) * 100 
+      : 0;
 
-    generatePrescriberPDF(prescriber, effectiveOrders, nonEffectiveOrders, {
-      orders: partnerOrders,
-      total: partnerOrdersTotal,
-      shouldDeduct: shouldDeductPartnerOrders
-    });
+    const referenceMonth = csvMonth ? `${csvMonth.month}/${csvMonth.year}` : '';
 
-    setShowPrescriberDialog(false);
+    try {
+      await createReport.mutateAsync({
+        prescriberId: prescriber.id,
+        referenceMonth: referenceMonth,
+        totalOrders: parsedOrders.length,
+        effectiveOrders: effectiveOrders.length,
+        conversionRate: conversionRate.toFixed(2),
+        totalEffectiveValue: totalEffectiveValue.toFixed(2),
+        commissionValue: totalCommission.toFixed(2),
+        expenses: deductedExpenses.toFixed(2),
+        finalBalance: finalBalance.toFixed(2),
+        pdfPath: "pending"
+      });
+    } catch (err) {
+      console.error('Error creating report:', err);
+    }
+
+    setIsGenerating(false);
     setSelectedPrescriberId('');
     setParsedOrders([]);
     setPartnerOrders([]);
     setPartnerOrdersTotal(0);
     setShouldDeductPartnerOrders(true);
 
-    setSuccess(`Relatório gerado! ${successCount} pedidos importados.`);
     toast({
       title: "Relatório Gerado",
-      description: `PDF criado com sucesso para ${prescriber.name}.`,
+      description: `Relatório de ${prescriber.name} criado com sucesso. Acesse a aba "Gerar Relatórios" para baixar o PDF.`,
     });
+
+    if (onReportGenerated) {
+      onReportGenerated();
+    }
   };
 
   const handleCancelDialog = () => {
@@ -401,7 +269,21 @@ export function CSVUpload() {
     }
   };
 
-  const selectedPrescriber = prescribers.find(p => p.id === Number(selectedPrescriberId));
+  const effectiveCount = parsedOrders.filter(o => o.status === 'Efetivado').length;
+  const nonEffectiveCount = parsedOrders.filter(o => o.status === 'Não efetivado').length;
+
+  if (isGenerating) {
+    return (
+      <Card className="w-full">
+        <CardContent className="py-16">
+          <div className="flex flex-col items-center justify-center gap-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-lg font-medium text-muted-foreground">Gerando relatório...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <>
@@ -500,10 +382,11 @@ export function CSVUpload() {
             </Select>
 
             {selectedPrescriberId && (
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground space-y-1 p-3 bg-muted/50 rounded-lg">
                 <p><strong>Pedidos encontrados no CSV:</strong> {parsedOrders.length}</p>
-                <p><strong>Efetivados:</strong> {parsedOrders.filter(o => o.status === 'Aprovado').length}</p>
-                <p><strong>Não efetivados:</strong> {parsedOrders.filter(o => o.status !== 'Aprovado').length}</p>
+                <p><strong>Efetivados (Aprovado):</strong> {effectiveCount}</p>
+                <p><strong>Não efetivados (Recusado/No carrinho):</strong> {nonEffectiveCount}</p>
+                <p><strong>Taxa de conversão:</strong> {parsedOrders.length > 0 ? ((effectiveCount / parsedOrders.length) * 100).toFixed(2) : 0}%</p>
               </div>
             )}
 

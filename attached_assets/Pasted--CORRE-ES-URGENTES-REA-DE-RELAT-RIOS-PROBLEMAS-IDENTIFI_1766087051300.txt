@@ -1,0 +1,177 @@
+# CORREÇÕES URGENTES - ÁREA DE RELATÓRIOS
+
+## PROBLEMAS IDENTIFICADOS
+
+### 1. ❌ PDF baixando direto ao gerar
+**Atual:** Clica em "Processar Relatórios" → baixa PDF direto
+**Correto:** Clica em "Processar Relatórios" → vai para aba "Gerar Relatórios" → mostra na tabela → botão de download na coluna "Ações"
+
+### 2. ❌ "Dados Importados do CSV" aparecendo
+**Atual:** Mostra tabela com todos os pedidos importados
+**Correto:** REMOVER essa seção. Apenas mostrar loading "Gerando..." por ~3 segundos enquanto processa
+
+### 3. ❌ PDF com lógica errada de Efetivados/Não Efetivados
+**Atual:** Todos os pedidos aparecem como "Não efetivados" (conversão 0%)
+**Correto:** Status "Aprovado" = Efetivado | Status "Recusado" ou "No carrinho" = Não efetivado
+
+---
+
+## CORREÇÃO 1: Fluxo de Geração
+```
+FLUXO CORRETO:
+
+1. Usuário está na aba "Importar CSV"
+2. Faz upload do CSV
+3. Seleciona o prescritor no popup
+4. Clica "Gerar Relatório"
+5. Mostra loading: "Gerando..." (spinner)
+6. Após processar:
+   - Redireciona para aba "Gerar Relatórios"
+   - Relatório aparece na tabela
+   - Colunas: Mês Ref. | Prescritor | Total Efetivado | Comissão | Saldo Final | Ações
+   - Botão de download PDF na coluna "Ações"
+```
+
+---
+
+## CORREÇÃO 2: Remover "Dados Importados do CSV"
+```typescript
+// REMOVER completamente a seção que mostra os pedidos importados
+// Substituir por loading simples:
+
+const [isGenerating, setIsGenerating] = useState(false);
+
+// Durante geração:
+{isGenerating && (
+  <div className="flex flex-col items-center justify-center py-12">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-4"></div>
+    <p className="text-gray-600 text-lg">Gerando relatório...</p>
+  </div>
+)}
+```
+
+---
+
+## CORREÇÃO 3: Lógica de Status do PDF
+
+### Regra de Conversão de Status:
+
+| Status no CSV | Classificação no PDF |
+|---------------|---------------------|
+| `Aprovado` | **Efetivado** ✅ |
+| `Recusado` | **Não efetivado** ❌ |
+| `No carrinho` | **Não efetivado** ❌ |
+
+### Código do Parser (csvParser.ts):
+```typescript
+function normalizeStatus(status: string): 'Efetivado' | 'Não efetivado' {
+  const statusLower = status.toLowerCase().trim();
+  
+  if (statusLower === 'aprovado') {
+    return 'Efetivado';
+  }
+  
+  // Recusado, No carrinho, ou qualquer outro = Não efetivado
+  return 'Não efetivado';
+}
+```
+
+### Separação para o PDF:
+```typescript
+function separateOrders(orders: ParsedOrder[]) {
+  const efetivados = orders.filter(o => o.status === 'Efetivado');
+  const naoEfetivados = orders.filter(o => o.status === 'Não efetivado');
+  
+  return { efetivados, naoEfetivados };
+}
+```
+
+### Cálculo de Conversão:
+```typescript
+const totalOrders = orders.length;
+const efetivadosCount = efetivados.length;
+const conversionRate = (efetivadosCount / totalOrders) * 100;
+
+// Exemplo do CSV enviado:
+// Total: 22 pedidos
+// Aprovados: 10 pedidos
+// Conversão: 10/22 = 45.45%
+```
+
+---
+
+## CORREÇÃO 4: Estrutura do PDF (Modelo Correto)
+
+Usar como referência o arquivo `Relatoriocorreto.pdf`:
+```
+BRUNO FRAUCHES SOUZA                    CONVERSÃO 45.45%
+
+Pedidos efetivados
+┌────────────┬──────────┬──────────────┬────────────────────────────┬─────────┐
+│ Data       │ Status   │ Valor Líquido│ Paciente                   │ 15%     │
+├────────────┼──────────┼──────────────┼────────────────────────────┼─────────┤
+│ 01/12/2025 │ Aprovado │ R$ 74,09     │ MARCIA HELENA GIACOMINI... │ R$ 11,11│
+│ 01/12/2025 │ Aprovado │ R$ 477,90    │ RODRIGO DA SILVA NUNES     │ R$ 71,68│
+│ ...        │ ...      │ ...          │ ...                        │ ...     │
+├────────────┴──────────┼──────────────┼────────────────────────────┼─────────┤
+│               TOTAL   │ R$ 4.838,97  │                            │R$ 725,85│
+├───────────────────────┼──────────────┼────────────────────────────┼─────────┤
+│               SALDO   │              │                            │R$ 725,85│
+└───────────────────────┴──────────────┴────────────────────────────┴─────────┘
+
+Pedidos não efetivados
+┌────────────┬────────────┬──────────────┬──────────────────────────┬──────────┐
+│ Data       │ Status     │ Valor Líquido│ Paciente                 │ 15%      │
+├────────────┼────────────┼──────────────┼──────────────────────────┼──────────┤
+│ 01/12/2025 │ Recusado   │ R$ 115,90    │ MARCIA HELENA GIACOMINI..│ R$ 17,39 │
+│ 02/12/2025 │ No carrinho│ R$ 998,45    │ CAIO CESAR DIAS RIBEIRO  │ R$ 149,77│
+│ ...        │ ...        │ ...          │ ...                      │ ...      │
+├────────────┴────────────┼──────────────┼──────────────────────────┼──────────┤
+│                 TOTAL   │ R$ 7.534,69  │                          │R$1.130,20│
+└─────────────────────────┴──────────────┴──────────────────────────┴──────────┘
+```
+
+---
+
+## CORREÇÃO 5: Aba "Gerar Relatórios" - Tabela de Resultados
+```typescript
+// Tabela onde os relatórios gerados aparecem
+
+interface GeneratedReport {
+  id: number;
+  referenceMonth: string;      // "12/2025"
+  prescriberName: string;      // "BRUNO FRAUCHES SOUZA"
+  totalEffective: number;      // 4838.97
+  commission: number;          // 725.85
+  finalBalance: number;        // 725.85 (ou menos se tiver compras)
+  pdfUrl: string;              // URL para download
+  createdAt: string;
+}
+
+// Colunas da tabela:
+// Mês Ref. | Prescritor | Total Efetivado | Comissão | Saldo Final | Ações
+//                                                                   [📥 Download]
+```
+
+---
+
+## RESUMO DAS ALTERAÇÕES
+
+| Item | Antes | Depois |
+|------|-------|--------|
+| Download PDF | Direto ao processar | Via botão na tabela |
+| Dados importados | Mostra tabela completa | Remove, só loading |
+| Loading | Não tinha | "Gerando..." com spinner |
+| Status Aprovado | Ia para Não efetivado | Vai para Efetivado ✅ |
+| Status Recusado/No carrinho | Tudo misturado | Vai para Não efetivado ✅ |
+| Conversão | 0% (errado) | Calculado corretamente |
+
+---
+
+## ARQUIVOS DE REFERÊNCIA
+
+- **CSV de entrada:** `Relatorios_de_Orcamentos_e_Pedidos_por_Prescritor_Detalhado18122025142804.csv`
+- **PDF ERRADO:** `Relatorio_BRUNO_FRAUCHES_SOUZA_122025__6_.pdf` (todos como não efetivados)
+- **PDF CORRETO:** `Relatoriocorreto.pdf` (separação correta, conversão 45.45%)
+
+Use o `Relatoriocorreto.pdf` como modelo visual OBRIGATÓRIO.
