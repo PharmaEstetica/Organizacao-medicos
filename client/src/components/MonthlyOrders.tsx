@@ -86,7 +86,7 @@ export function MonthlyOrders({ filterMonth = 'all' }: MonthlyOrdersProps) {
                   </TableCell>
                   <TableCell className="font-semibold text-foreground text-sm">{order.prescriberName}</TableCell>
                   <TableCell className="text-xs text-muted-foreground font-mono">
-                    {order.req ? <span className="text-primary font-bold">#{order.req}</span> : order.orderNumbers.join(", ")}
+                    {order.req ? <span className="text-primary font-bold">#{order.req}</span> : order.orderNumbers}
                   </TableCell>
                   <TableCell>
                     <Badge 
