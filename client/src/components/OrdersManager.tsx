@@ -44,7 +44,11 @@ const orderFormSchema = z.object({
   paymentStatus: z.enum(["Pago", "Pendente"]),
 });
 
-export function OrdersManager() {
+interface OrdersManagerProps {
+  hideImport?: boolean;
+}
+
+export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
   const { clearOrders, orders, prescribers, addOrders } = useApp();
   const { toast } = useToast();
   
@@ -259,7 +263,7 @@ export function OrdersManager() {
       </div>
 
       <div className="grid gap-8">
-        <CSVUpload />
+        {!hideImport && <CSVUpload />}
         <MonthlyOrders filterMonth={ordersFilterMonth} />
       </div>
     </div>
