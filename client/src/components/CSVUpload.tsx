@@ -31,7 +31,7 @@ import autoTable from "jspdf-autotable";
 
 interface ParsedOrder {
   prescriberName: string;
-  orderNumbers: number[];
+  orderNumbers: string[];
   orderDate: Date;
   status: string;
   originalStatus?: string;
