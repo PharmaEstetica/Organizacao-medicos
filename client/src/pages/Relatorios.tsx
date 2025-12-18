@@ -31,6 +31,154 @@ export default function Relatorios() {
     return `${date.getMonth() + 1}/${date.getFullYear()}`; // "12/2023"
   }))).sort();
 
+  const generatePrescriberPDF = (prescriber: any, effectiveOrders: any[], nonEffectiveOrders: any[], monthYear: string, download = false) => {
+    const doc = new jsPDF();
+    const totalEffectiveValue = effectiveOrders.reduce((sum, o) => sum + o.netValue, 0);
+    const totalCommission = effectiveOrders.reduce((sum, o) => sum + (o.netValue * (prescriber.commission_percentage / 100)), 0);
+    const totalNonEffectiveValue = nonEffectiveOrders.reduce((sum, o) => sum + o.netValue, 0);
+    const totalNonEffectiveCommission = nonEffectiveOrders.reduce((sum, o) => sum + (o.netValue * (prescriber.commission_percentage / 100)), 0);
+    
+    const conversionRate = (effectiveOrders.length / (effectiveOrders.length + nonEffectiveOrders.length)) * 100 || 0;
+
+    // --- Header ---
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(prescriber.name.toUpperCase(), 14, 20);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`CONVERSÃO ${conversionRate.toFixed(2)}%`, 195, 20, { align: "right" });
+
+    // --- Pedidos Efetivados ---
+    let currentY = 35;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Pedidos efetivados", 14, currentY);
+    
+    currentY += 5;
+
+    const tableHeaders = [['Data', 'Status', 'Valor Líquido', 'Paciente', `${prescriber.commission_percentage}%`]];
+    
+    const formatCurrency = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+    const effectiveRows = effectiveOrders.map(o => [
+      new Date(o.orderDate).toLocaleDateString('pt-BR'),
+      "Aprovado", // Hardcoded per requirement/image (mapped from 'Efetivado')
+      formatCurrency(o.netValue),
+      o.patient || o.prescriberName, // Fallback if patient missing
+      formatCurrency(o.netValue * (prescriber.commission_percentage / 100))
+    ]);
+
+    // Footer Row for Effective
+    const effectiveFooter = [
+      ['TOTAL', '', formatCurrency(totalEffectiveValue), '', formatCurrency(totalCommission)],
+      ['SALDO', '', '', '', formatCurrency(totalCommission)]
+    ];
+
+    autoTable(doc, {
+      startY: currentY,
+      head: tableHeaders,
+      body: effectiveRows,
+      foot: effectiveFooter,
+      theme: 'plain', // Cleaner look, we will add manual styling
+      headStyles: {
+        fillColor: [230, 208, 222], // Light purple/lilac #E6D0DE
+        textColor: [0, 0, 0],
+        fontStyle: 'bold',
+        fontSize: 10,
+        cellPadding: 3,
+      },
+      bodyStyles: {
+        fontSize: 9,
+        textColor: [0, 0, 0],
+        cellPadding: 3,
+      },
+      footStyles: {
+        fillColor: [255, 255, 255],
+        textColor: [0, 0, 0],
+        fontStyle: 'bold',
+        fontSize: 10,
+        cellPadding: 3,
+      },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 35, halign: 'right' },
+        3: { cellWidth: 'auto' }, // Patient takes remaining space
+        4: { cellWidth: 30, halign: 'right' },
+      },
+      didParseCell: function (data) {
+        // Style the SALDO row specifically if needed, but footStyles handles bold
+        if (data.section === 'foot' && data.row.index === 1) {
+             // specific styling for SALDO row if needed
+        }
+      }
+    });
+
+    // @ts-ignore
+    currentY = doc.lastAutoTable.finalY + 20;
+
+    // --- Pedidos Não Efetivados ---
+    if (nonEffectiveOrders.length > 0) {
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Pedidos não efetivados", 14, currentY);
+        currentY += 5;
+
+        const nonEffectiveRows = nonEffectiveOrders.map(o => [
+            new Date(o.orderDate).toLocaleDateString('pt-BR'),
+            o.status === 'Não efetivado' ? 'Recusado' : o.status, // Map status
+            formatCurrency(o.netValue),
+            o.patient || o.prescriberName,
+            formatCurrency(o.netValue * (prescriber.commission_percentage / 100))
+        ]);
+
+        const nonEffectiveFooter = [
+            ['TOTAL', '', formatCurrency(totalNonEffectiveValue), '', formatCurrency(totalNonEffectiveCommission)]
+        ];
+
+        autoTable(doc, {
+            startY: currentY,
+            head: tableHeaders,
+            body: nonEffectiveRows,
+            foot: nonEffectiveFooter,
+            theme: 'plain',
+            headStyles: {
+                fillColor: [230, 208, 222],
+                textColor: [0, 0, 0],
+                fontStyle: 'bold',
+                fontSize: 10,
+                cellPadding: 3,
+            },
+            bodyStyles: {
+                fontSize: 9,
+                textColor: [0, 0, 0],
+                cellPadding: 3,
+            },
+            footStyles: {
+                fillColor: [255, 255, 255],
+                textColor: [0, 0, 0],
+                fontStyle: 'bold',
+                fontSize: 10,
+                cellPadding: 3,
+            },
+            columnStyles: {
+                0: { cellWidth: 25 },
+                1: { cellWidth: 25 },
+                2: { cellWidth: 35, halign: 'right' },
+                3: { cellWidth: 'auto' },
+                4: { cellWidth: 30, halign: 'right' },
+            },
+        });
+    }
+
+    if (download) {
+        doc.save(`Relatorio_${prescriber.name.replace(/\s+/g, '_')}_${monthYear.replace('/', '-')}.pdf`);
+    }
+    
+    return doc;
+  };
+
   const handleGenerateAll = async () => {
     if (!selectedMonth) {
       toast({
@@ -44,7 +192,6 @@ export default function Relatorios() {
     setIsGenerating(true);
 
     try {
-      // Filter orders for the selected month
       const [month, year] = selectedMonth.split('/').map(Number);
       
       for (const prescriber of prescribers) {
@@ -62,84 +209,11 @@ export default function Relatorios() {
         
         const totalEffectiveValue = effectiveOrders.reduce((sum, o) => sum + o.netValue, 0);
         const commissionValue = totalEffectiveValue * (prescriber.commission_percentage / 100);
-        const expenses = 0; // Mock expenses for now
+        const expenses = 0;
         const finalBalance = commissionValue - expenses;
         const conversionRate = (effectiveOrders.length / prescriberOrders.length) * 100;
 
-        // Generate PDF
-        const doc = new jsPDF();
-        
-        // Header
-        doc.setFillColor(230, 200, 235); // #E6C8EB
-        doc.rect(15, 15, 180, 15, 'F');
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text(prescriber.name, 20, 25);
-        
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Conversão: ${conversionRate.toFixed(1)}%`, 150, 25);
-
-        let y = 40;
-
-        // Table Effective
-        autoTable(doc, {
-          startY: y,
-          head: [['Data', 'Status', 'Valor Líquido', 'Paciente', `${prescriber.commission_percentage}% Comissão`]],
-          body: effectiveOrders.map(o => [
-            new Date(o.orderDate).toLocaleDateString('pt-BR'),
-            o.status,
-            `R$ ${o.netValue.toFixed(2)}`,
-            o.patient || '',
-            '' 
-          ]),
-          theme: 'grid',
-          headStyles: { fillColor: [240, 240, 240], textColor: [50, 50, 50] },
-          styles: { fontSize: 8 },
-        });
-
-        // @ts-ignore
-        y = doc.lastAutoTable.finalY + 10;
-
-        // Totals
-        doc.setFont("helvetica", "bold");
-        doc.text("TOTAL", 20, y);
-        doc.text(`R$ ${totalEffectiveValue.toFixed(2)}`, 120, y);
-        doc.text(`R$ ${commissionValue.toFixed(2)}`, 160, y);
-
-        y += 10;
-        doc.setTextColor(200, 0, 0);
-        doc.text("COMPRAS", 20, y);
-        doc.text(`-R$ ${expenses.toFixed(2)}`, 160, y);
-
-        y += 10;
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(12);
-        doc.text("SALDO", 20, y);
-        doc.text(`R$ ${finalBalance.toFixed(2)}`, 160, y);
-
-        // Non Effective
-        if (nonEffectiveOrders.length > 0) {
-          y += 20;
-          doc.setFontSize(11);
-          doc.setTextColor(100, 100, 100);
-          doc.text("Pedidos Não Efetivados", 20, y);
-          
-          autoTable(doc, {
-            startY: y + 5,
-            head: [['Data', 'Status', 'Valor Líquido', 'Paciente']],
-            body: nonEffectiveOrders.map(o => [
-              new Date(o.orderDate).toLocaleDateString('pt-BR'),
-              o.status,
-              `R$ ${o.netValue.toFixed(2)}`,
-              o.patient || ''
-            ]),
-            theme: 'grid',
-            headStyles: { fillColor: [240, 240, 240], textColor: [50, 50, 50] },
-            styles: { fontSize: 8 },
-          });
-        }
-
+        // Create report record
         generateReport(prescriber.id, selectedMonth, {
           total_orders: prescriberOrders.length,
           effective_orders: effectiveOrders.length,
@@ -148,7 +222,7 @@ export default function Relatorios() {
           commission_value: commissionValue,
           expenses: expenses,
           final_balance: finalBalance,
-          pdf_path: "mock_path.pdf" 
+          pdf_path: "generated_on_demand" 
         });
       }
 
@@ -175,24 +249,35 @@ export default function Relatorios() {
     const prescriber = prescribers.find(p => p.id === report.prescriber_id);
     if (!prescriber) return;
 
+    // Re-calculate orders for this specific report to regenerate the PDF
+    const [month, year] = report.reference_month.split('/').map(Number);
+    const prescriberOrders = orders.filter(o => {
+        const d = new Date(o.orderDate);
+        return d.getMonth() + 1 === month && 
+               d.getFullYear() === year && 
+               o.prescriberName.toLowerCase() === prescriber.name.toLowerCase();
+    });
+
+    const effectiveOrders = prescriberOrders.filter(o => o.status === 'Efetivado');
+    const nonEffectiveOrders = prescriberOrders.filter(o => o.status === 'Não efetivado');
+
     toast({
         title: "Download Iniciado",
-        description: `Baixando relatório de ${prescriber.name}... (Simulação)`,
+        description: `Baixando relatório de ${prescriber.name}...`,
     });
     
-    const doc = new jsPDF();
-    doc.text(`Relatório: ${prescriber.name}`, 20, 20);
-    doc.text(`Mês: ${report.reference_month}`, 20, 30);
-    doc.text(`Saldo: R$ ${report.final_balance.toFixed(2)}`, 20, 40);
-    doc.save(`Relatorio_${prescriber.name}_${report.reference_month.replace('/', '-')}.pdf`);
+    generatePrescriberPDF(prescriber, effectiveOrders, nonEffectiveOrders, report.reference_month, true);
   };
 
   return (
     <div className="container py-10 max-w-screen-2xl space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Gestão Financeira</h1>
+        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+            <FileText className="h-8 w-8 text-primary" />
+            Gestão Financeira
+        </h1>
         <p className="text-muted-foreground mt-2">
-          Gerencie pedidos de parceiros e emita relatórios financeiros.
+          Gerencie pedidos de parceiros e emita relatórios financeiros detalhados.
         </p>
       </div>
 
@@ -207,11 +292,11 @@ export default function Relatorios() {
         </TabsContent>
 
         <TabsContent value="relatorios" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <Card>
+          <Card className="border-border">
             <CardHeader>
-              <CardTitle>Gerar Relatórios</CardTitle>
+              <CardTitle>Gerar Relatórios Mensais</CardTitle>
               <CardDescription>
-                Selecione o mês para calcular comissões e gerar PDFs para todos os prescritores.
+                Selecione o mês para calcular comissões e gerar os demonstrativos para todos os parceiros.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex items-end gap-4">
@@ -233,7 +318,7 @@ export default function Relatorios() {
               </div>
               <Button onClick={handleGenerateAll} disabled={isGenerating || !selectedMonth}>
                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-                Gerar Relatórios
+                Processar Relatórios
               </Button>
             </CardContent>
           </Card>
