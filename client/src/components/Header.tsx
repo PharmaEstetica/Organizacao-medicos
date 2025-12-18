@@ -8,7 +8,7 @@ export function Header() {
   const navItems = [
     { href: "/", label: "Buscar", icon: Search },
     { href: "/cadastros", label: "Cadastros", icon: Users },
-    // "Pedidos" removed as it's now inside Relatorios
+    { href: "/pedidos", label: "Pedidos", icon: LayoutDashboard },
     { href: "/relatorios", label: "Relatórios & Pedidos", icon: FileText },
   ];
 

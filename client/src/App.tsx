@@ -9,7 +9,7 @@ import { Header } from "@/components/Header";
 
 // Pages
 import Cadastros from "@/pages/Cadastros";
-// import PedidosDoMes from "@/pages/PedidosDoMes"; // Removed
+import PedidosDoMes from "@/pages/PedidosDoMes";
 import Relatorios from "@/pages/Relatorios";
 import Buscar from "@/pages/Buscar";
 
@@ -20,7 +20,7 @@ function Router() {
         <Switch>
           <Route path="/" component={Buscar} />
           <Route path="/cadastros" component={Cadastros} />
-          {/* <Route path="/pedidos" component={PedidosDoMes} /> // Route removed */}
+          <Route path="/pedidos" component={PedidosDoMes} />
           <Route path="/relatorios" component={Relatorios} />
           <Route component={NotFound} />
         </Switch>
