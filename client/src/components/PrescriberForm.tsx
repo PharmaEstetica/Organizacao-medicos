@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useApp } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
 import { Prescriber } from "@/types";
+import { User, Stethoscope, FileBadge, Percent } from "lucide-react";
 
 const formSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -98,7 +99,8 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-1">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
+        
         <FormField
           control={form.control}
           name="name"
@@ -106,14 +108,17 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
             <FormItem>
               <FormLabel>Nome Completo</FormLabel>
               <FormControl>
-                <Input placeholder="Dr. Fulano de Tal" {...field} />
+                <div className="relative">
+                  <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Dr. Fulano de Tal" {...field} className="pl-9 bg-muted/30 border-muted-foreground/20 focus:bg-background transition-colors" />
+                </div>
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
             name="specialty"
@@ -121,7 +126,10 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
               <FormItem>
                 <FormLabel>Especialidade</FormLabel>
                 <FormControl>
-                  <Input placeholder="Ex: Cardiologia" {...field} />
+                  <div className="relative">
+                    <Stethoscope className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Ex: Cardiologia" {...field} className="pl-9 bg-muted/30 border-muted-foreground/20 focus:bg-background transition-colors" />
+                  </div>
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -136,7 +144,7 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
                 <FormLabel>Tipo de Vínculo</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-muted/30 border-muted-foreground/20 focus:bg-background transition-colors">
                       <SelectValue placeholder="Selecione..." />
                     </SelectTrigger>
                   </FormControl>
@@ -152,7 +160,7 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
             name="crm"
@@ -160,7 +168,10 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
               <FormItem>
                 <FormLabel>CRM</FormLabel>
                 <FormControl>
-                  <Input placeholder="12345/UF" {...field} />
+                  <div className="relative">
+                    <FileBadge className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="12345/UF" {...field} className="pl-9 bg-muted/30 border-muted-foreground/20 focus:bg-background transition-colors" />
+                  </div>
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -174,7 +185,10 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
               <FormItem>
                 <FormLabel>Comissão (%)</FormLabel>
                 <FormControl>
-                  <Input type="number" step="0.1" {...field} />
+                  <div className="relative">
+                    <Percent className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input type="number" step="0.1" {...field} className="pl-9 bg-muted/30 border-muted-foreground/20 focus:bg-background transition-colors" />
+                  </div>
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -186,28 +200,29 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
           control={form.control}
           name="crm_required"
           render={({ field }) => (
-            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-xl border border-border/50 bg-muted/20 p-4 transition-colors hover:bg-muted/40">
               <FormControl>
                 <Checkbox
                   checked={field.value}
                   onCheckedChange={field.onChange}
+                  className="mt-1"
                 />
               </FormControl>
               <div className="space-y-1 leading-none">
-                <FormLabel>
+                <FormLabel className="font-medium">
                   Exigir CRM nos relatórios
                 </FormLabel>
                 <FormDescription>
-                  Se marcado, o sistema validará o CRM deste prescritor.
+                  Se marcado, o sistema validará o CRM deste prescritor durante o processamento.
                 </FormDescription>
               </div>
             </FormItem>
           )}
         />
 
-        <div className="flex justify-end">
-          <Button type="submit" size="lg">
-            {initialData ? "Atualizar" : "Cadastrar Prescritor"}
+        <div className="flex justify-end pt-4">
+          <Button type="submit" size="lg" className="px-8 rounded-full shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300">
+            {initialData ? "Salvar Alterações" : "Cadastrar Prescritor"}
           </Button>
         </div>
       </form>

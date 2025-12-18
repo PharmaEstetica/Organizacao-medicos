@@ -53,100 +53,114 @@
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 }
 
-/* LIGHT MODE - Professional Medical/Financial Theme */
+/* 
+  NEW ART DIRECTION: Modern Fintech / High-End SaaS
+  - Vibrant Violet/Indigo Primary
+  - Clean, airy layout
+  - High contrast text
+  - Soft, colored shadows
+*/
 :root {
-  --background: 210 20% 98%; /* Soft cool gray background */
-  --foreground: 222 47% 11%; /* Deep navy text */
+  /* Slate-ish background for depth */
+  --background: 220 30% 96%; 
+  --foreground: 230 40% 15%; /* Dark Blue-Grey */
 
+  /* Pure white cards with subtle border */
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --card-foreground: 230 40% 15%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover-foreground: 230 40% 15%;
 
-  --primary: 221 83% 53%; /* Trustworthy Blue */
-  --primary-foreground: 210 40% 98%;
+  /* Vibrant Indigo/Violet */
+  --primary: 250 85% 60%;
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 222 47% 11%;
+  /* Soft Lavender for secondary actions */
+  --secondary: 250 30% 96%;
+  --secondary-foreground: 250 85% 60%;
 
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
+  --muted: 220 20% 94%;
+  --muted-foreground: 220 10% 45%;
 
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222 47% 11%;
+  --accent: 250 30% 96%;
+  --accent-foreground: 250 85% 60%;
 
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
 
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 221 83% 53%;
+  --border: 220 20% 90%;
+  --input: 220 20% 90%;
+  
+  /* Glowy Ring */
+  --ring: 250 85% 60%;
 
-  --radius: 0.5rem;
+  --radius: 0.75rem; /* Rounder, friendlier corners */
 
-  --chart-1: 221 83% 53%;
-  --chart-2: 173 58% 39%;
-  --chart-3: 197 37% 24%;
-  --chart-4: 43 74% 66%;
-  --chart-5: 27 87% 67%;
+  /* Modern Chart Colors */
+  --chart-1: 250 85% 60%; /* Primary */
+  --chart-2: 190 80% 50%; /* Cyan */
+  --chart-3: 320 70% 60%; /* Pink */
+  --chart-4: 40 90% 60%;  /* Amber */
+  --chart-5: 160 60% 45%; /* Emerald */
 
-  --sidebar: 0 0% 98%;
-  --sidebar-foreground: 240 5.3% 26.1%;
-  --sidebar-primary: 240 5.9% 10%;
-  --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent: 240 4.8% 95.9%;
-  --sidebar-accent-foreground: 240 5.9% 10%;
-  --sidebar-border: 220 13% 91%;
-  --sidebar-ring: 217.2 91.2% 59.8%;
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 230 40% 15%;
+  --sidebar-primary: 250 85% 60%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 250 30% 96%;
+  --sidebar-accent-foreground: 250 85% 60%;
+  --sidebar-border: 220 20% 90%;
+  --sidebar-ring: 250 85% 60%;
 
-  --font-sans: 'Inter', sans-serif;
-  --font-serif: 'Libre Baskerville', serif;
+  /* FONTS */
+  --font-sans: 'Plus Jakarta Sans', sans-serif; /* Clean, geometric, tech-forward */
+  --font-serif: 'Outfit', sans-serif; /* Using Outfit as display font instead of serif */
 }
 
 .dark {
-  --background: 222 47% 11%;
-  --foreground: 210 40% 98%;
+  --background: 230 25% 10%; /* Deep dark blue */
+  --foreground: 220 20% 98%;
 
-  --card: 222 47% 11%;
-  --card-foreground: 210 40% 98%;
+  --card: 230 20% 14%;
+  --card-foreground: 220 20% 98%;
 
-  --popover: 222 47% 11%;
-  --popover-foreground: 210 40% 98%;
+  --popover: 230 20% 14%;
+  --popover-foreground: 220 20% 98%;
 
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 47.4% 11.2%;
+  --primary: 250 85% 65%; /* Slightly lighter violet for dark mode */
+  --primary-foreground: 230 25% 10%;
 
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
+  --secondary: 230 20% 20%;
+  --secondary-foreground: 250 85% 65%;
 
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
+  --muted: 230 20% 20%;
+  --muted-foreground: 220 15% 65%;
 
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 230 20% 20%;
+  --accent-foreground: 250 85% 65%;
 
   --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive-foreground: 220 20% 98%;
 
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
+  --border: 230 20% 20%;
+  --input: 230 20% 20%;
+  --ring: 250 85% 65%;
 
-  --chart-1: 220 70% 50%;
-  --chart-2: 160 60% 45%;
-  --chart-3: 30 80% 55%;
-  --chart-4: 280 65% 60%;
-  --chart-5: 340 75% 55%;
+  --chart-1: 250 85% 65%;
+  --chart-2: 190 80% 55%;
+  --chart-3: 320 70% 65%;
+  --chart-4: 40 90% 65%;
+  --chart-5: 160 60% 50%;
 
-  --sidebar: 240 5.9% 10%;
-  --sidebar-foreground: 240 4.8% 95.9%;
-  --sidebar-primary: 224.3 76.3% 48%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 240 3.7% 15.9%;
-  --sidebar-accent-foreground: 240 4.8% 95.9%;
-  --sidebar-border: 240 3.7% 15.9%;
-  --sidebar-ring: 217.2 91.2% 59.8%;
+  --sidebar: 230 20% 14%;
+  --sidebar-foreground: 220 20% 98%;
+  --sidebar-primary: 250 85% 65%;
+  --sidebar-primary-foreground: 230 25% 10%;
+  --sidebar-accent: 230 20% 20%;
+  --sidebar-accent-foreground: 250 85% 65%;
+  --sidebar-border: 230 20% 20%;
+  --sidebar-ring: 250 85% 65%;
 }
 
 @layer base {
@@ -154,9 +168,30 @@
     @apply border-border;
   }
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased bg-background text-foreground selection:bg-primary/20 selection:text-primary;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-serif font-bold tracking-tight text-foreground/90;
+    @apply font-serif font-bold tracking-tight text-foreground;
   }
+  
+  /* Glassmorphism Utilities */
+  .glass {
+    @apply bg-white/70 dark:bg-black/70 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-sm;
+  }
+  
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-sm border border-border/50 shadow-sm transition-all duration-300 hover:shadow-md hover:border-primary/20;
+  }
+}
+
+/* Custom Scrollbar for a sleeker look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40 transition-colors;
 }
