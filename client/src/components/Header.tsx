@@ -8,8 +8,8 @@ export function Header() {
   const navItems = [
     { href: "/", label: "Buscar", icon: Search },
     { href: "/cadastros", label: "Cadastros", icon: Users },
-    { href: "/pedidos", label: "Pedidos", icon: LayoutDashboard },
-    { href: "/relatorios", label: "Relatórios", icon: FileText },
+    // "Pedidos" removed as it's now inside Relatorios
+    { href: "/relatorios", label: "Relatórios & Pedidos", icon: FileText },
   ];
 
   return (
