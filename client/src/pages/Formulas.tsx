@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FlaskConical, Plus, Search, User, FileText, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useApp } from "@/context/AppContext";
+import { useFormulas, usePrescribers, useDeleteFormula } from "@/hooks/useApi";
 import { FormulaForm } from "@/components/FormulaForm";
 import {
   AlertDialog,
@@ -18,7 +18,9 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function Formulas() {
-  const { formulas, prescribers, deleteFormula } = useApp();
+  const { data: formulas = [] } = useFormulas();
+  const { data: prescribers = [] } = usePrescribers();
+  const deleteFormula = useDeleteFormula();
   const [searchTerm, setSearchTerm] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
 
@@ -82,7 +84,7 @@ export default function Formulas() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => deleteFormula(formula.id)} className="bg-destructive hover:bg-destructive/90">
+                      <AlertDialogAction onClick={() => deleteFormula.mutate(formula.id)} className="bg-destructive hover:bg-destructive/90">
                         Excluir
                       </AlertDialogAction>
                     </AlertDialogFooter>

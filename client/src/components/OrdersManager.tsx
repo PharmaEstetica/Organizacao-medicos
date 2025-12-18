@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Trash2, PlusCircle, ShoppingBag } from "lucide-react";
-import { useApp } from "@/context/AppContext";
+import { useOrders, usePrescribers, useCreateOrder } from "@/hooks/useApi";
+import type { Order } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +32,6 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
-import { GroupedOrder } from "@/types";
 import { CSVUpload } from "@/components/CSVUpload";
 import { MonthlyOrders } from "@/components/MonthlyOrders";
 
@@ -49,7 +49,9 @@ interface OrdersManagerProps {
 }
 
 export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
-  const { clearOrders, orders, prescribers, addOrders } = useApp();
+  const { data: orders = [] } = useOrders();
+  const { data: prescribers = [] } = usePrescribers();
+  const createOrder = useCreateOrder();
   const { toast } = useToast();
   
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
@@ -71,24 +73,27 @@ export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
   });
 
   const onOrderSubmit = (values: z.infer<typeof orderFormSchema>) => {
-    const newOrder: GroupedOrder = {
-      prescriberName: values.prescriberName,
-      orderNumbers: [values.req], 
-      orderDate: new Date(values.orderDate),
+    const prescriber = prescribers.find(p => p.name === values.prescriberName);
+    
+    createOrder.mutate({
+      prescriberId: prescriber?.id || null,
+      orderNumbers: values.req,
+      orderDate: values.orderDate,
       status: 'Efetivado',
-      netValue: values.netValue,
+      netValue: values.netValue.toString(),
       req: values.req,
-      discountPercentage: values.discountPercentage,
+      discountPercentage: values.discountPercentage.toString(),
       paymentStatus: values.paymentStatus,
-    };
-
-    addOrders([newOrder]);
-    toast({
-      title: "Pedido Adicionado",
-      description: "O novo pedido foi registrado com sucesso.",
+    }, {
+      onSuccess: () => {
+        toast({
+          title: "Pedido Adicionado",
+          description: "O novo pedido foi registrado com sucesso.",
+        });
+        setIsNewOrderOpen(false);
+        orderForm.reset();
+      }
     });
-    setIsNewOrderOpen(false);
-    orderForm.reset();
   };
 
   return (
@@ -253,12 +258,6 @@ export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
             </DialogContent>
           </Dialog>
 
-          {orders.length > 0 && (
-            <Button variant="destructive" onClick={clearOrders}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              Limpar
-            </Button>
-          )}
         </div>
       </div>
 

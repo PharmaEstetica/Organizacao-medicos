@@ -8,7 +8,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useApp } from "@/context/AppContext";
+import { useOrders } from "@/hooks/useApi";
+import type { Order } from "@/lib/api";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { TrendingUp, FileText } from "lucide-react";
@@ -18,7 +19,7 @@ interface MonthlyOrdersProps {
 }
 
 export function MonthlyOrders({ filterMonth = 'all' }: MonthlyOrdersProps) {
-  const { orders } = useApp();
+  const { data: orders = [] } = useOrders();
 
   const filteredOrders = orders.filter(order => {
     if (filterMonth === 'all') return true;
@@ -27,14 +28,18 @@ export function MonthlyOrders({ filterMonth = 'all' }: MonthlyOrdersProps) {
     return monthStr === filterMonth;
   });
 
-  const formatCurrency = (value: number) => {
+  const formatCurrency = (value: string | number) => {
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
-    }).format(value);
+    }).format(numValue);
   };
 
-  const totalValue = filteredOrders.reduce((acc, order) => acc + order.netValue, 0);
+  const totalValue = filteredOrders.reduce((acc, order) => {
+    const netValue = typeof order.netValue === 'string' ? parseFloat(order.netValue) : order.netValue;
+    return acc + netValue;
+  }, 0);
 
   return (
     <Card className="border border-border rounded-sm bg-card shadow-sm">

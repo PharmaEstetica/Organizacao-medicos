@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { FileDown, Calendar, Wallet } from "lucide-react";
-import { useApp } from "@/context/AppContext";
+import { useReports, usePrescribers } from "@/hooks/useApi";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -17,17 +17,19 @@ interface ReportsListProps {
 }
 
 export function ReportsList({ onDownload }: ReportsListProps) {
-  const { reports, prescribers } = useApp();
+  const { data: reports = [] } = useReports();
+  const { data: prescribers = [] } = usePrescribers();
 
   const getPrescriberName = (id: number) => {
     return prescribers.find(p => p.id === id)?.name || "Desconhecido";
   };
 
-  const formatCurrency = (value: number) => {
+  const formatCurrency = (value: string | number) => {
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
-    }).format(value);
+    }).format(numValue);
   };
 
   return (
@@ -59,18 +61,18 @@ export function ReportsList({ onDownload }: ReportsListProps) {
                 <TableCell className="font-medium text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-3.5 w-3.5" />
-                    {report.reference_month}
+                    {report.referenceMonth}
                   </div>
                 </TableCell>
-                <TableCell className="font-medium text-foreground">{getPrescriberName(report.prescriber_id)}</TableCell>
+                <TableCell className="font-medium text-foreground">{getPrescriberName(report.prescriberId)}</TableCell>
                 <TableCell className="text-right text-muted-foreground">
-                  {formatCurrency(report.total_effective_value)}
+                  {formatCurrency(report.totalEffectiveValue)}
                 </TableCell>
                 <TableCell className="text-right text-muted-foreground">
-                  {formatCurrency(report.commission_value)}
+                  {formatCurrency(report.commissionValue)}
                 </TableCell>
                 <TableCell className="text-right font-bold text-emerald-600 dark:text-emerald-400">
-                  {formatCurrency(report.final_balance)}
+                  {formatCurrency(report.finalBalance)}
                 </TableCell>
                 <TableCell className="text-right">
                   <Button

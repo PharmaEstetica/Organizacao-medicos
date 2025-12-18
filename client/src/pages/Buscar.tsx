@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useApp } from "@/context/AppContext";
+import { usePrescribers, useFormulas } from "@/hooks/useApi";
+import type { Prescriber, Formula } from "@/lib/api";
 import { Search, FlaskConical, Package, User, FileText, Activity } from "lucide-react";
 import {
   Dialog,
@@ -15,12 +16,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 
 export default function Buscar() {
-  const { prescribers, formulas } = useApp();
+  const { data: prescribers = [] } = usePrescribers();
+  const { data: formulas = [] } = useFormulas();
   const [searchTerm, setSearchTerm] = useState("");
   
   // State for modals
-  const [selectedPrescriber, setSelectedPrescriber] = useState<any>(null);
-  const [selectedFormula, setSelectedFormula] = useState<any>(null);
+  const [selectedPrescriber, setSelectedPrescriber] = useState<Prescriber | null>(null);
+  const [selectedFormula, setSelectedFormula] = useState<Formula | null>(null);
 
   const filteredPrescribers = prescribers.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -43,7 +45,7 @@ export default function Buscar() {
   };
 
   // Helper to "diagram" the formula content
-  const FormulaDiagram = ({ formula }: { formula: any }) => {
+  const FormulaDiagram = ({ formula }: { formula: Formula }) => {
     const components = formula.content.split('+').map((c: string) => c.trim());
     
     return (
@@ -128,8 +130,8 @@ export default function Buscar() {
                     <div className="p-6 flex items-start gap-4">
                       <div className="relative">
                         <div className="h-16 w-16 rounded-sm bg-secondary flex items-center justify-center text-secondary-foreground text-2xl font-bold overflow-hidden">
-                          {prescriber.photo_url ? (
-                            <img src={prescriber.photo_url} alt={prescriber.name} className="h-full w-full object-cover" />
+                          {prescriber.photoUrl ? (
+                            <img src={prescriber.photoUrl} alt={prescriber.name} className="h-full w-full object-cover" />
                           ) : (
                             prescriber.name.charAt(0)
                           )}
@@ -140,7 +142,7 @@ export default function Buscar() {
                         <p className="text-sm text-muted-foreground">{prescriber.specialty}</p>
                         <div className="pt-2 flex gap-2">
                           <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-1 bg-secondary rounded-sm text-secondary-foreground">
-                            {prescriber.bond_type}
+                            {prescriber.bondType}
                           </span>
                         </div>
                       </div>
@@ -229,7 +231,7 @@ export default function Buscar() {
                 {selectedPrescriber?.name}
             </DialogTitle>
             <DialogDescription className="text-base">
-              {selectedPrescriber?.specialty} • {selectedPrescriber?.bond_type === 'N' ? 'Neutro' : 'Parceiro'}
+              {selectedPrescriber?.specialty} • {selectedPrescriber?.bondType === 'N' ? 'Neutro' : 'Parceiro'}
             </DialogDescription>
           </DialogHeader>
           

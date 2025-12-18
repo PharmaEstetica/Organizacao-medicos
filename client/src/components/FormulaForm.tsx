@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useApp } from "@/context/AppContext";
+import { usePrescribers, usePackagings, useCreateFormula, usePharmaceuticalForms, useCreatePharmaceuticalForm } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -59,7 +59,11 @@ interface FormulaFormProps {
 }
 
 export function FormulaForm({ open, onOpenChange }: FormulaFormProps) {
-  const { prescribers, addFormula, pharmaceuticalForms, addPharmaceuticalForm, packagings } = useApp();
+  const { data: prescribers = [] } = usePrescribers();
+  const { data: packagings = [] } = usePackagings();
+  const { data: pharmaceuticalForms = [] } = usePharmaceuticalForms();
+  const createFormula = useCreateFormula();
+  const createPharmaceuticalForm = useCreatePharmaceuticalForm();
   const { toast } = useToast();
   const [openCombobox, setOpenCombobox] = useState(false);
 
@@ -75,23 +79,26 @@ export function FormulaForm({ open, onOpenChange }: FormulaFormProps) {
   });
 
   const onSubmit = (values: z.infer<typeof formulaSchema>) => {
-    // Add pharma form if it doesn't exist (handled by the combobox creation logic effectively, but good to ensure)
-    addPharmaceuticalForm(values.pharmaceuticalForm);
+    if (!pharmaceuticalForms.find(f => f.name === values.pharmaceuticalForm)) {
+      createPharmaceuticalForm.mutate(values.pharmaceuticalForm);
+    }
 
-    addFormula({
+    createFormula.mutate({
       name: values.name,
       prescriberId: values.prescriberId === "none" ? null : parseInt(values.prescriberId),
-      packagingId: values.packagingId === "none" ? undefined : parseInt(values.packagingId),
+      packagingId: values.packagingId === "none" ? null : parseInt(values.packagingId),
       content: values.content,
       pharmaceuticalForm: values.pharmaceuticalForm,
+    }, {
+      onSuccess: () => {
+        toast({
+          title: "Fórmula criada",
+          description: "A nova fórmula foi salva com sucesso.",
+        });
+        form.reset();
+        onOpenChange(false);
+      }
     });
-
-    toast({
-      title: "Fórmula criada",
-      description: "A nova fórmula foi salva com sucesso.",
-    });
-    form.reset();
-    onOpenChange(false);
   };
 
   return (
@@ -218,22 +225,22 @@ export function FormulaForm({ open, onOpenChange }: FormulaFormProps) {
                           <CommandGroup>
                             {pharmaceuticalForms.map((item) => (
                               <CommandItem
-                                value={item}
-                                key={item}
+                                value={item.name}
+                                key={item.id}
                                 onSelect={() => {
-                                  field.onChange(item);
+                                  field.onChange(item.name);
                                   setOpenCombobox(false);
                                 }}
                               >
                                 <Check
                                   className={cn(
                                     "mr-2 h-4 w-4",
-                                    item === field.value
+                                    item.name === field.value
                                       ? "opacity-100"
                                       : "opacity-0"
                                   )}
                                 />
-                                {item}
+                                {item.name}
                               </CommandItem>
                             ))}
                           </CommandGroup>

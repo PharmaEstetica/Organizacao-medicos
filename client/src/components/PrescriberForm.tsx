@@ -34,9 +34,9 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useApp } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
-import { Prescriber } from "@/types";
+import { type Prescriber as ApiPrescriber } from "@/lib/api";
+import { usePackagings, useCreatePrescriber, useUpdatePrescriber } from "@/hooks/useApi";
 import { User, Stethoscope, FileBadge, Percent, Package, Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -45,40 +45,43 @@ const formSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   specialty: z.string().min(2, "Especialidade obrigatória"),
   crm: z.string().optional(),
-  crm_required: z.boolean().default(true),
-  commission_percentage: z.coerce.number().min(0).max(100),
-  bond_type: z.enum(["P", "C", "N"], {
+  crmRequired: z.boolean().default(true),
+  commissionPercentage: z.coerce.number().min(0).max(100),
+  bondType: z.enum(["P", "C", "N"], {
     required_error: "Selecione o tipo de vínculo",
   }),
-  linked_packagings: z.array(z.number()).default([]),
+  linkedPackagings: z.array(z.number()).default([]),
 });
 
 interface PrescriberFormProps {
   onSuccess?: () => void;
-  initialData?: Prescriber;
+  initialData?: ApiPrescriber;
 }
 
 export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) {
-  const { addPrescriber, updatePrescriber, packagings } = useApp();
   const { toast } = useToast();
   const [openPackagings, setOpenPackagings] = useState(false);
+  
+  const { data: packagings = [] } = usePackagings();
+  const createPrescriber = useCreatePrescriber();
+  const updatePrescriber = useUpdatePrescriber();
 
   const defaultValues: Partial<z.infer<typeof formSchema>> = initialData ? {
     name: initialData.name,
     specialty: initialData.specialty,
     crm: initialData.crm || "",
-    crm_required: initialData.crm_required,
-    commission_percentage: initialData.commission_percentage,
-    bond_type: initialData.bond_type,
-    linked_packagings: initialData.linked_packagings || [],
+    crmRequired: initialData.crmRequired,
+    commissionPercentage: parseFloat(initialData.commissionPercentage),
+    bondType: initialData.bondType as "P" | "C" | "N",
+    linkedPackagings: initialData.linkedPackagings || [],
   } : {
     name: "",
     specialty: "",
     crm: "",
-    crm_required: true,
-    commission_percentage: 10,
-    bond_type: "P",
-    linked_packagings: [],
+    crmRequired: true,
+    commissionPercentage: 10,
+    bondType: "P" as const,
+    linkedPackagings: [],
   };
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -87,38 +90,53 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      const prescriberData = {
-        ...values,
-        crm: values.crm || null,
-        packagings_count: values.linked_packagings.length,
-      };
+    const prescriberData = {
+      ...values,
+      crm: values.crm || null,
+      commissionPercentage: values.commissionPercentage.toString(),
+    };
 
-      if (initialData) {
-        updatePrescriber(initialData.id, prescriberData);
-        toast({
-          title: "Prescritor atualizado",
-          description: `${values.name} foi atualizado com sucesso.`,
-        });
-      } else {
-        addPrescriber(prescriberData);
-        toast({
-          title: "Prescritor cadastrado",
-          description: `${values.name} foi adicionado com sucesso.`,
-        });
-      }
-      form.reset();
-      onSuccess?.();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao salvar.",
-        variant: "destructive",
+    if (initialData) {
+      updatePrescriber.mutate(
+        { id: initialData.id, data: prescriberData },
+        {
+          onSuccess: () => {
+            toast({
+              title: "Prescritor atualizado",
+              description: `${values.name} foi atualizado com sucesso.`,
+            });
+            form.reset();
+            onSuccess?.();
+          },
+          onError: () => {
+            toast({
+              title: "Erro",
+              description: "Ocorreu um erro ao atualizar.",
+              variant: "destructive",
+            });
+          },
+        }
+      );
+    } else {
+      createPrescriber.mutate(prescriberData, {
+        onSuccess: () => {
+          toast({
+            title: "Prescritor cadastrado",
+            description: `${values.name} foi adicionado com sucesso.`,
+          });
+          form.reset();
+          onSuccess?.();
+        },
+        onError: () => {
+          toast({
+            title: "Erro",
+            description: "Ocorreu um erro ao salvar.",
+            variant: "destructive",
+          });
+        },
       });
     }
   }
-
-  const selectedPackagings = form.watch("linked_packagings");
 
   return (
     <Form {...form}>

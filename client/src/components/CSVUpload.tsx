@@ -6,14 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { parseCSV } from '@/lib/csvParser';
 import { unificarSequenciais } from '@/lib/orderGrouping';
-import { useApp } from '@/context/AppContext';
+import { useCreateOrder } from '@/hooks/useApi';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 export function CSVUpload() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const { addOrders, clearOrders } = useApp();
+  const createOrder = useCreateOrder();
   const { toast } = useToast();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -46,14 +46,31 @@ export function CSVUpload() {
       // Process and Group Orders
       const groupedOrders = unificarSequenciais(data);
       
-      // Update Context
-      clearOrders(); // Optional: clear previous month's orders
-      addOrders(groupedOrders);
-
-      setSuccess(`Processado com sucesso! ${groupedOrders.length} pedidos unificados encontrados.`);
-      toast({
-        title: "Upload Concluído",
-        description: `${groupedOrders.length} pedidos foram importados e unificados.`,
+      // Create orders via API
+      let successCount = 0;
+      groupedOrders.forEach(order => {
+        createOrder.mutate({
+          prescriberId: null,
+          orderNumbers: order.orderNumbers.join(','),
+          orderDate: order.orderDate.toISOString(),
+          status: order.status,
+          netValue: order.netValue.toString(),
+          patient: order.patient,
+        }, {
+          onSuccess: () => {
+            successCount++;
+            if (successCount === groupedOrders.length) {
+              setSuccess(`Processado com sucesso! ${groupedOrders.length} pedidos unificados encontrados.`);
+              toast({
+                title: "Upload Concluído",
+                description: `${groupedOrders.length} pedidos foram importados e unificados.`,
+              });
+            }
+          },
+          onError: () => {
+            setError('Erro ao salvar alguns pedidos.');
+          }
+        });
       });
     };
 
@@ -62,7 +79,7 @@ export function CSVUpload() {
     };
 
     reader.readAsText(file);
-  }, [addOrders, clearOrders, toast]);
+  }, [createOrder, toast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop,

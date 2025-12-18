@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Edit2, Trash2, User, Stethoscope } from "lucide-react";
-import { useApp } from "@/context/AppContext";
+import { usePrescribers, useDeletePrescriber } from "@/hooks/useApi";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,7 +27,8 @@ interface PrescriberListProps {
 }
 
 export function PrescriberList({ onEdit }: PrescriberListProps) {
-  const { prescribers, deletePrescriber } = useApp();
+  const { data: prescribers = [] } = usePrescribers();
+  const deletePrescriber = useDeletePrescriber();
 
   const getBondLabel = (type: string) => {
     return type;
@@ -74,12 +75,12 @@ export function PrescriberList({ onEdit }: PrescriberListProps) {
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className="rounded-sm font-medium border-border text-muted-foreground px-2 py-0.5 text-xs">
-                    {getBondLabel(prescriber.bond_type)}
+                    {getBondLabel(prescriber.bondType)}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
                   <span className="font-mono text-sm font-medium">
-                    {prescriber.commission_percentage}%
+                    {prescriber.commissionPercentage}%
                   </span>
                 </TableCell>
                 <TableCell className="text-right">
@@ -109,7 +110,7 @@ export function PrescriberList({ onEdit }: PrescriberListProps) {
                         <AlertDialogFooter>
                           <AlertDialogCancel className="rounded-sm">Cancelar</AlertDialogCancel>
                           <AlertDialogAction 
-                            onClick={() => deletePrescriber(prescriber.id)} 
+                            onClick={() => deletePrescriber.mutate(prescriber.id)} 
                             className="bg-destructive hover:bg-destructive/90 rounded-sm"
                           >
                             Excluir

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { usePackagings, useCreatePackaging, useDeletePackaging } from "@/hooks/useApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -38,21 +38,23 @@ const packagingSchema = z.object({
   name: z.string().min(2, "Nome é obrigatório"),
   type: z.string().min(2, "Tipo é obrigatório"),
   capacity: z.string().min(1, "Capacidade é obrigatória"),
-  image_url: z.string().optional(),
-  has_sticker: z.boolean().default(false),
-  sticker_supplier: z.string().optional(),
+  imageUrl: z.string().optional(),
+  hasSticker: z.boolean().default(false),
+  stickerSupplier: z.string().optional(),
 }).refine((data) => {
-  if (data.has_sticker && !data.sticker_supplier) {
+  if (data.hasSticker && !data.stickerSupplier) {
     return false;
   }
   return true;
 }, {
   message: "Fornecedor é obrigatório se tiver adesivo",
-  path: ["sticker_supplier"],
+  path: ["stickerSupplier"],
 });
 
 export function PackagingManager() {
-  const { packagings, addPackaging, deletePackaging } = useApp();
+  const { data: packagings = [] } = usePackagings();
+  const createPackaging = useCreatePackaging();
+  const deletePackaging = useDeletePackaging();
   const [isOpen, setIsOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
@@ -62,20 +64,23 @@ export function PackagingManager() {
       name: "",
       type: "",
       capacity: "",
-      has_sticker: false,
-      sticker_supplier: "",
-      image_url: "",
+      hasSticker: false,
+      stickerSupplier: "",
+      imageUrl: "",
     },
   });
 
   const onSubmit = (values: z.infer<typeof packagingSchema>) => {
-    addPackaging({
+    createPackaging.mutate({
         ...values,
-        image_url: imagePreview || values.image_url,
+        imageUrl: imagePreview || values.imageUrl,
+    }, {
+      onSuccess: () => {
+        form.reset();
+        setImagePreview(null);
+        setIsOpen(false);
+      }
     });
-    form.reset();
-    setImagePreview(null);
-    setIsOpen(false);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -198,7 +203,7 @@ export function PackagingManager() {
                 <div className="bg-muted/20 p-4 rounded-lg border border-border space-y-4">
                     <FormField
                     control={form.control}
-                    name="has_sticker"
+                    name="hasSticker"
                     render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg p-0">
                             <div className="space-y-0.5">
@@ -219,10 +224,10 @@ export function PackagingManager() {
                     )}
                     />
 
-                    {form.watch("has_sticker") && (
+                    {form.watch("hasSticker") && (
                         <FormField
                             control={form.control}
-                            name="sticker_supplier"
+                            name="stickerSupplier"
                             render={({ field }) => (
                             <FormItem className="animate-in fade-in slide-in-from-top-2 duration-200">
                                 <FormLabel>Fornecedor do Adesivo</FormLabel>
@@ -268,9 +273,9 @@ export function PackagingManager() {
                     packagings.map((pkg) => (
                         <TableRow key={pkg.id}>
                             <TableCell>
-                                {pkg.image_url ? (
+                                {pkg.imageUrl ? (
                                     <div className="h-10 w-10 rounded-sm overflow-hidden bg-muted border border-border">
-                                        <img src={pkg.image_url} alt={pkg.name} className="h-full w-full object-cover" />
+                                        <img src={pkg.imageUrl} alt={pkg.name} className="h-full w-full object-cover" />
                                     </div>
                                 ) : (
                                     <div className="h-10 w-10 rounded-sm bg-muted flex items-center justify-center text-muted-foreground">
@@ -282,17 +287,17 @@ export function PackagingManager() {
                             <TableCell>{pkg.type}</TableCell>
                             <TableCell>{pkg.capacity}</TableCell>
                             <TableCell>
-                                {pkg.has_sticker ? (
+                                {pkg.hasSticker ? (
                                     <div className="flex flex-col">
                                         <Badge variant="outline" className="w-fit mb-1 border-primary/30 text-primary bg-primary/5">Sim</Badge>
-                                        <span className="text-xs text-muted-foreground">{pkg.sticker_supplier}</span>
+                                        <span className="text-xs text-muted-foreground">{pkg.stickerSupplier}</span>
                                     </div>
                                 ) : (
                                     <span className="text-muted-foreground text-sm">-</span>
                                 )}
                             </TableCell>
                             <TableCell className="text-right">
-                                <Button variant="ghost" size="icon" onClick={() => deletePackaging(pkg.id)}>
+                                <Button variant="ghost" size="icon" onClick={() => deletePackaging.mutate(pkg.id)}>
                                     <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
                             </TableCell>
