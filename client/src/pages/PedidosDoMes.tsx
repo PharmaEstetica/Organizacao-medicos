@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -212,19 +213,32 @@ export default function PedidosDoMes() {
                     control={form.control}
                     name="paymentStatus"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="space-y-3">
                         <FormLabel>Status Pagamento (Mês Atual)</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione..." />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Pendente">Pendente</SelectItem>
-                            <SelectItem value="Pago">Pago</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <RadioGroup
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            className="flex flex-row space-x-4"
+                          >
+                            <FormItem className="flex items-center space-x-2 space-y-0">
+                              <FormControl>
+                                <RadioGroupItem value="Pendente" />
+                              </FormControl>
+                              <FormLabel className="font-normal">
+                                Pendente
+                              </FormLabel>
+                            </FormItem>
+                            <FormItem className="flex items-center space-x-2 space-y-0">
+                              <FormControl>
+                                <RadioGroupItem value="Pago" />
+                              </FormControl>
+                              <FormLabel className="font-normal">
+                                Pago
+                              </FormLabel>
+                            </FormItem>
+                          </RadioGroup>
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
