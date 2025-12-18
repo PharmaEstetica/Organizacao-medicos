@@ -11,13 +11,15 @@ import { Header } from "@/components/Header";
 import Cadastros from "@/pages/Cadastros";
 import PedidosDoMes from "@/pages/PedidosDoMes";
 import Relatorios from "@/pages/Relatorios";
+import Buscar from "@/pages/Buscar";
 
 function Router() {
   return (
     <div className="mx-auto max-w-7xl p-6 pt-8">
       <div className="glass-card min-h-[calc(100vh-140px)] rounded-3xl p-8 animate-in fade-in duration-500 slide-in-from-bottom-4">
         <Switch>
-          <Route path="/" component={Cadastros} />
+          <Route path="/" component={Buscar} />
+          <Route path="/cadastros" component={Cadastros} />
           <Route path="/pedidos" component={PedidosDoMes} />
           <Route path="/relatorios" component={Relatorios} />
           <Route component={NotFound} />

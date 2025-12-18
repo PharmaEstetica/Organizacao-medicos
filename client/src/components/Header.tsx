@@ -1,12 +1,13 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, FileText, Activity } from "lucide-react";
+import { LayoutDashboard, Users, FileText, Activity, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Header() {
   const [location] = useLocation();
 
   const navItems = [
-    { href: "/", label: "Cadastros", icon: Users },
+    { href: "/", label: "Buscar", icon: Search },
+    { href: "/cadastros", label: "Cadastros", icon: Users },
     { href: "/pedidos", label: "Pedidos", icon: LayoutDashboard },
     { href: "/relatorios", label: "Relatórios", icon: FileText },
   ];

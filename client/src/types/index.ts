@@ -10,6 +10,10 @@ export interface Prescriber {
   bond_type: 'P' | 'C' | 'N';
   created_at: string;
   updated_at: string;
+  // New fields for profile simulation
+  photo_url?: string;
+  formulas_count?: number;
+  packagings_count?: number;
 }
 
 export interface ParsedOrder {
@@ -28,6 +32,10 @@ export interface GroupedOrder {
   status: 'Efetivado' | 'Não efetivado';
   netValue: number;
   patient?: string;
+  // New fields for manual entry
+  req?: string;
+  discountPercentage?: number;
+  paymentStatus?: 'Pago' | 'Pendente';
 }
 
 export interface Report {

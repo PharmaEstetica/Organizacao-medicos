@@ -13,8 +13,19 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { TrendingUp, FileText } from "lucide-react";
 
-export function MonthlyOrders() {
+interface MonthlyOrdersProps {
+  filterMonth?: string;
+}
+
+export function MonthlyOrders({ filterMonth = 'all' }: MonthlyOrdersProps) {
   const { orders } = useApp();
+
+  const filteredOrders = orders.filter(order => {
+    if (filterMonth === 'all') return true;
+    const date = new Date(order.orderDate);
+    const monthStr = `${date.getMonth() + 1}/${date.getFullYear()}`;
+    return monthStr === filterMonth;
+  });
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -23,7 +34,7 @@ export function MonthlyOrders() {
     }).format(value);
   };
 
-  const totalValue = orders.reduce((acc, order) => acc + order.netValue, 0);
+  const totalValue = filteredOrders.reduce((acc, order) => acc + order.netValue, 0);
 
   return (
     <Card className="border-none shadow-none bg-transparent">
@@ -32,9 +43,11 @@ export function MonthlyOrders() {
           <div>
             <CardTitle className="text-xl font-bold flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              Resumo dos Pedidos
+              Pedidos de Parceiros
             </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">Consolidado do arquivo importado</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {filterMonth === 'all' ? 'Todos os pedidos' : `Pedidos de ${filterMonth}`}
+            </p>
           </div>
           <div className="text-right">
             <p className="text-sm font-medium text-muted-foreground mb-1">Valor Total</p>
@@ -51,28 +64,30 @@ export function MonthlyOrders() {
             <TableHeader className="bg-muted/30">
               <TableRow className="hover:bg-transparent">
                 <TableHead className="font-semibold">Data</TableHead>
-                <TableHead className="font-semibold">Prescritor</TableHead>
-                <TableHead className="font-semibold">Paciente</TableHead>
+                <TableHead className="font-semibold">Parceiro</TableHead>
+                <TableHead className="font-semibold">REQ / Pedidos</TableHead>
                 <TableHead className="font-semibold">Status</TableHead>
-                <TableHead className="font-semibold">Nº Pedidos</TableHead>
+                <TableHead className="font-semibold">Pagamento</TableHead>
                 <TableHead className="text-right font-semibold">Valor Líquido</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.length === 0 ? (
+              {filteredOrders.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                    Nenhum pedido importado. Faça o upload de um CSV acima.
+                    Nenhum pedido encontrado.
                   </TableCell>
                 </TableRow>
               ) : (
-                orders.map((order, index) => (
+                filteredOrders.map((order, index) => (
                   <TableRow key={`${order.prescriberName}-${index}`} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="text-muted-foreground">
                       {format(new Date(order.orderDate), "dd/MM/yyyy", { locale: ptBR })}
                     </TableCell>
                     <TableCell className="font-medium text-foreground">{order.prescriberName}</TableCell>
-                    <TableCell>{order.patient || "-"}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground font-mono">
+                      {order.req ? `REQ: ${order.req}` : order.orderNumbers.join(", ")}
+                    </TableCell>
                     <TableCell>
                       <Badge 
                         variant="secondary"
@@ -83,8 +98,12 @@ export function MonthlyOrders() {
                         {order.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground font-mono">
-                      {order.orderNumbers.join(", ")}
+                    <TableCell>
+                      {order.paymentStatus && (
+                        <Badge variant="outline" className={order.paymentStatus === 'Pago' ? "border-green-500 text-green-600" : "border-amber-500 text-amber-600"}>
+                          {order.paymentStatus}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-right font-bold text-foreground">
                       {formatCurrency(order.netValue)}

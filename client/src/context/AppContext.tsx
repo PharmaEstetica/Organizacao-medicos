@@ -28,6 +28,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       bond_type: 'P',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      photo_url: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&auto=format&fit=crop&q=60',
+      formulas_count: 12,
+      packagings_count: 5
     },
     {
       id: 2,
@@ -39,6 +42,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       bond_type: 'C',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      photo_url: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&auto=format&fit=crop&q=60',
+      formulas_count: 8,
+      packagings_count: 3
     }
   ]);
 
@@ -51,6 +57,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: Math.max(0, ...prescribers.map(p => p.id)) + 1,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      formulas_count: 0,
+      packagings_count: 0
     };
     setPrescribers([...prescribers, newPrescriber]);
   };
