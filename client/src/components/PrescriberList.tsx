@@ -42,7 +42,7 @@ export function PrescriberList({ onEdit }: PrescriberListProps) {
             <TableHead className="h-12 font-bold text-xs uppercase tracking-wider text-muted-foreground">Nome</TableHead>
             <TableHead className="h-12 font-bold text-xs uppercase tracking-wider text-muted-foreground">Especialidade</TableHead>
             <TableHead className="h-12 font-bold text-xs uppercase tracking-wider text-muted-foreground">Vínculo</TableHead>
-            <TableHead className="h-12 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">Comissão</TableHead>
+            <TableHead className="h-12 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">%</TableHead>
             <TableHead className="h-12 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">Ações</TableHead>
           </TableRow>
         </TableHeader>
