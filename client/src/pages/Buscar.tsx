@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { usePrescribers, useFormulas } from "@/hooks/useApi";
 import type { Prescriber, Formula } from "@/lib/api";
-import { Search, FlaskConical, Package, User, FileText, Activity } from "lucide-react";
+import { Search, FlaskConical, Package, User, FileText, Activity, FileBadge, File } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -238,11 +238,35 @@ export default function Buscar() {
           
           <Separator />
           
-          <div className="flex-1 overflow-auto py-4">
-            <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
-                <FlaskConical className="h-4 w-4" />
-                Fórmulas Vinculadas
-            </h3>
+          <div className="flex-1 overflow-auto py-4 space-y-6">
+            {selectedPrescriber?.attachments && selectedPrescriber.attachments.length > 0 && (
+              <div>
+                <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+                  <FileBadge className="h-4 w-4" />
+                  Anexos
+                </h3>
+                <div className="space-y-2">
+                  {selectedPrescriber.attachments.map((attachment, idx) => (
+                    <a
+                      key={idx}
+                      href={attachment.data}
+                      download={attachment.name}
+                      className="flex items-center gap-2 p-2 rounded text-sm text-blue-600 hover:bg-blue-50 transition-colors truncate"
+                      data-testid={`link-download-attachment-${idx}`}
+                    >
+                      <File className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{attachment.name}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div>
+              <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                  <FlaskConical className="h-4 w-4" />
+                  Fórmulas Vinculadas
+              </h3>
             
             {selectedPrescriber && getPrescriberFormulas(selectedPrescriber.id).length > 0 ? (
                 <div className="grid grid-cols-1 gap-3">
@@ -272,6 +296,7 @@ export default function Buscar() {
                     Nenhuma fórmula vinculada a este prescritor.
                 </div>
             )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

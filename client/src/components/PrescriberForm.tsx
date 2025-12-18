@@ -37,7 +37,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { type Prescriber as ApiPrescriber } from "@/lib/api";
 import { usePackagings, useCreatePrescriber, useUpdatePrescriber } from "@/hooks/useApi";
-import { User, Stethoscope, FileBadge, Percent, Package, Check, ChevronsUpDown, Upload, X } from "lucide-react";
+import { User, Stethoscope, FileBadge, Percent, Package, Check, ChevronsUpDown, Upload, X, File, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
@@ -52,6 +52,11 @@ const formSchema = z.object({
   }),
   linkedPackagings: z.array(z.number()).default([]),
   photoUrl: z.string().optional(),
+  attachments: z.array(z.object({
+    name: z.string(),
+    type: z.string(),
+    data: z.string(),
+  })).default([]),
 });
 
 interface PrescriberFormProps {
@@ -63,6 +68,7 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
   const { toast } = useToast();
   const [openPackagings, setOpenPackagings] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photoUrl || null);
+  const [attachments, setAttachments] = useState<Array<{name: string; type: string; data: string}>>(initialData?.attachments || []);
   
   const { data: packagings = [] } = usePackagings();
   const createPrescriber = useCreatePrescriber();
@@ -77,6 +83,7 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
     bondType: initialData.bondType as "P" | "C" | "N",
     linkedPackagings: initialData.linkedPackagings || [],
     photoUrl: initialData.photoUrl || "",
+    attachments: initialData.attachments || [],
   } : {
     name: "",
     specialty: "",
@@ -86,6 +93,7 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
     bondType: "P" as const,
     linkedPackagings: [],
     photoUrl: "",
+    attachments: [],
   };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,6 +121,37 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
   const removePhoto = () => {
     setPhotoPreview(null);
     form.setValue("photoUrl", "");
+  };
+
+  const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    
+    files.forEach(file => {
+      if (file.size > maxSize) {
+        toast({
+          title: "Erro",
+          description: `${file.name} excede 5MB`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64String = event.target?.result as string;
+        const newAttachments = [...attachments, { name: file.name, type: file.type, data: base64String }];
+        setAttachments(newAttachments);
+        form.setValue("attachments", newAttachments);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeAttachment = (index: number) => {
+    const newAttachments = attachments.filter((_, i) => i !== index);
+    setAttachments(newAttachments);
+    form.setValue("attachments", newAttachments);
   };
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -241,6 +280,54 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
             </FormItem>
           )}
         />
+
+        <div className="space-y-2">
+          <label className="text-xs uppercase font-bold text-muted-foreground tracking-wider block">Anexos (PDF, Word, etc.)</label>
+          <div className="space-y-3">
+            {attachments.length > 0 && (
+              <div className="space-y-2">
+                {attachments.map((attachment, index) => (
+                  <div 
+                    key={index} 
+                    className="flex items-center justify-between p-3 rounded-sm bg-muted/20 border border-border"
+                    data-testid={`attachment-item-${index}`}
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <File className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="text-sm truncate">{attachment.name}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(index)}
+                      className="ml-2 p-1 hover:bg-destructive/10 text-destructive rounded transition-colors flex-shrink-0"
+                      data-testid={`button-remove-attachment-${index}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div>
+              <input
+                type="file"
+                multiple
+                onChange={handleAttachmentChange}
+                className="hidden"
+                id="attachment-input"
+                data-testid="input-attachments"
+              />
+              <label
+                htmlFor="attachment-input"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-sm border border-border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors"
+              >
+                <Upload className="h-4 w-4" />
+                <span className="text-sm font-medium">Adicionar Anexos</span>
+              </label>
+              <p className="text-xs text-muted-foreground mt-2">PDF, Word, Excel, etc. Máx 5MB por arquivo</p>
+            </div>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
