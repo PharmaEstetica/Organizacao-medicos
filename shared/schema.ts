@@ -139,3 +139,18 @@ export const insertPharmaceuticalFormSchema = createInsertSchema(pharmaceuticalF
 
 export type InsertPharmaceuticalForm = z.infer<typeof insertPharmaceuticalFormSchema>;
 export type PharmaceuticalForm = typeof pharmaceuticalForms.$inferSelect;
+
+export const settings = pgTable("settings", {
+  id: serial("id").primaryKey(),
+  settingKey: text("setting_key").notNull().unique(),
+  settingValue: text("setting_value").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertSettingSchema = createInsertSchema(settings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertSetting = z.infer<typeof insertSettingSchema>;
+export type Setting = typeof settings.$inferSelect;

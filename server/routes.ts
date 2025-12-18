@@ -284,5 +284,85 @@ export async function registerRoutes(
     }
   });
 
+  await storage.initializeDefaultSettings();
+
+  app.get("/api/settings", async (req, res) => {
+    try {
+      const allSettings = await storage.getSettings();
+      const result: Record<string, boolean> = {};
+      allSettings.forEach(s => {
+        if (s.settingKey.endsWith('_protected')) {
+          result[s.settingKey] = s.settingValue === 'true';
+        }
+      });
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  app.get("/api/settings/all", async (req, res) => {
+    try {
+      const allSettings = await storage.getSettings();
+      const result: Record<string, string> = {};
+      allSettings.forEach(s => {
+        result[s.settingKey] = s.settingValue;
+      });
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  app.put("/api/settings", async (req, res) => {
+    try {
+      const { settings: newSettings, currentPassword } = req.body;
+      
+      const configPassword = await storage.getSetting('config_password');
+      if (configPassword?.settingValue !== currentPassword) {
+        return res.status(401).json({ error: 'Senha incorreta' });
+      }
+      
+      for (const [key, value] of Object.entries(newSettings)) {
+        await storage.upsertSetting(key, String(value));
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  app.post("/api/settings/verify", async (req, res) => {
+    try {
+      const { area, password } = req.body;
+      
+      const protectedSetting = await storage.getSetting(`${area}_protected`);
+      if (protectedSetting?.settingValue !== 'true') {
+        return res.json({ valid: true });
+      }
+      
+      const storedPassword = await storage.getSetting(`${area}_password`);
+      
+      if (storedPassword?.settingValue === password) {
+        res.json({ valid: true });
+      } else {
+        res.status(401).json({ valid: false, error: 'Senha incorreta' });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to verify password" });
+    }
+  });
+
+  app.get("/api/settings/is-protected/:area", async (req, res) => {
+    try {
+      const { area } = req.params;
+      const protectedSetting = await storage.getSetting(`${area}_protected`);
+      res.json({ isProtected: protectedSetting?.settingValue === 'true' });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to check protection status" });
+    }
+  });
+
   return httpServer;
 }

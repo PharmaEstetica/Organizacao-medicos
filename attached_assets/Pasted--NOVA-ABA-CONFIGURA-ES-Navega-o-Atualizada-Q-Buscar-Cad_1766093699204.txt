@@ -1,0 +1,611 @@
+# NOVA ABA: CONFIGURAÇÕES
+
+## Navegação Atualizada
+```
+Q Buscar | 👥 Cadastros | 📦 Pedidos | 🧪 Fórmulas | 📄 Relatórios | ⚙️ Configurações
+```
+
+---
+
+## Layout da Página de Configurações
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ⚙️ Configurações                                                            │
+│ Gerencie as senhas e bloqueios de acesso do sistema.                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ 🔒 Controle de Acesso por Área                                          │ │
+│ ├─────────────────────────────────────────────────────────────────────────┤ │
+│ │                                                                         │ │
+│ │  Relatórios                                                             │ │
+│ │  ┌──────────────────────────────────────────────────────────┬────────┐  │ │
+│ │  │ Exigir senha para acessar                                │ [ON]   │  │ │
+│ │  └──────────────────────────────────────────────────────────┴────────┘  │ │
+│ │  Senha: ┌────────────────────────────┐  👁️                             │ │
+│ │         │ ••••••••••                 │                                 │ │
+│ │         └────────────────────────────┘                                 │ │
+│ │                                                                         │ │
+│ │  ─────────────────────────────────────────────────────────────────────  │ │
+│ │                                                                         │ │
+│ │  Excluir Cadastros/Fórmulas                                            │ │
+│ │  ┌──────────────────────────────────────────────────────────┬────────┐  │ │
+│ │  │ Exigir senha para excluir                                │ [ON]   │  │ │
+│ │  └──────────────────────────────────────────────────────────┴────────┘  │ │
+│ │  Senha: ┌────────────────────────────┐  👁️                             │ │
+│ │         │ ••••••••••                 │                                 │ │
+│ │         └────────────────────────────┘                                 │ │
+│ │                                                                         │ │
+│ │  ─────────────────────────────────────────────────────────────────────  │ │
+│ │                                                                         │ │
+│ │  Configurações (esta página)                                           │ │
+│ │  ┌──────────────────────────────────────────────────────────┬────────┐  │ │
+│ │  │ Exigir senha para acessar                                │ [ON]   │  │ │
+│ │  └──────────────────────────────────────────────────────────┴────────┘  │ │
+│ │  Senha: ┌────────────────────────────┐  👁️                             │ │
+│ │         │ ••••••••••                 │                                 │ │
+│ │         └────────────────────────────┘                                 │ │
+│ │                                                                         │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│                                         [ Salvar Configurações ]            │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Áreas com Controle de Senha
+
+| Área | Descrição | Padrão |
+|------|-----------|--------|
+| **Relatórios** | Bloqueia acesso à aba "Relatórios" | ON |
+| **Excluir Cadastros/Fórmulas** | Bloqueia botão de excluir em cadastros e fórmulas | ON |
+| **Configurações** | Bloqueia acesso à própria aba de configurações | ON |
+
+---
+
+## Banco de Dados
+```sql
+CREATE TABLE settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  setting_key TEXT UNIQUE NOT NULL,
+  setting_value TEXT NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Dados iniciais
+INSERT INTO settings (setting_key, setting_value) VALUES
+  ('relatorios_protected', 'true'),
+  ('relatorios_password', 'relatorio123'),
+  ('delete_protected', 'true'),
+  ('delete_password', 'excluir123'),
+  ('config_protected', 'true'),
+  ('config_password', 'config123');
+```
+
+---
+
+## Backend - Rotas
+```typescript
+// GET /api/settings
+// Retorna configurações (sem expor senhas em texto puro para o frontend)
+app.get('/api/settings', async (req, res) => {
+  const settings = await db.all('SELECT setting_key, setting_value FROM settings');
+  
+  const result: Record<string, any> = {};
+  settings.forEach(s => {
+    // Não retornar senhas, apenas se está ativo ou não
+    if (s.setting_key.endsWith('_protected')) {
+      result[s.setting_key] = s.setting_value === 'true';
+    }
+  });
+  
+  res.json(result);
+});
+
+// PUT /api/settings
+// Atualiza configurações (requer senha master atual)
+app.put('/api/settings', async (req, res) => {
+  const { settings, currentPassword } = req.body;
+  
+  // Verificar senha atual das configurações
+  const configPassword = await db.get(
+    'SELECT setting_value FROM settings WHERE setting_key = ?',
+    ['config_password']
+  );
+  
+  if (configPassword?.setting_value !== currentPassword) {
+    return res.status(401).json({ error: 'Senha incorreta' });
+  }
+  
+  // Atualizar cada configuração
+  for (const [key, value] of Object.entries(settings)) {
+    await db.run(
+      'UPDATE settings SET setting_value = ?, updated_at = CURRENT_TIMESTAMP WHERE setting_key = ?',
+      [String(value), key]
+    );
+  }
+  
+  res.json({ success: true });
+});
+
+// POST /api/settings/verify
+// Verifica se senha está correta para uma área
+app.post('/api/settings/verify', async (req, res) => {
+  const { area, password } = req.body;
+  
+  const storedPassword = await db.get(
+    'SELECT setting_value FROM settings WHERE setting_key = ?',
+    [`${area}_password`]
+  );
+  
+  if (storedPassword?.setting_value === password) {
+    res.json({ valid: true });
+  } else {
+    res.status(401).json({ valid: false, error: 'Senha incorreta' });
+  }
+});
+```
+
+---
+
+## Frontend - Hook de Proteção
+```typescript
+// hooks/useProtectedAccess.ts
+
+import { useState } from 'react';
+
+interface UseProtectedAccessReturn {
+  isLocked: boolean;
+  showPasswordModal: boolean;
+  setShowPasswordModal: (show: boolean) => void;
+  verifyPassword: (password: string) => Promise<boolean>;
+  unlock: () => void;
+}
+
+export function useProtectedAccess(area: string): UseProtectedAccessReturn {
+  const [isLocked, setIsLocked] = useState(true);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+
+  const verifyPassword = async (password: string): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/settings/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ area, password })
+      });
+      
+      if (res.ok) {
+        setIsLocked(false);
+        setShowPasswordModal(false);
+        // Guardar em sessionStorage para não pedir de novo na mesma sessão
+        sessionStorage.setItem(`unlocked_${area}`, 'true');
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
+  const unlock = () => {
+    // Verificar se já desbloqueou nesta sessão
+    if (sessionStorage.getItem(`unlocked_${area}`) === 'true') {
+      setIsLocked(false);
+    }
+  };
+
+  return {
+    isLocked,
+    showPasswordModal,
+    setShowPasswordModal,
+    verifyPassword,
+    unlock
+  };
+}
+```
+
+---
+
+## Frontend - Modal de Senha
+```tsx
+// components/PasswordModal.tsx
+
+import { useState } from 'react';
+import { Lock, Eye, EyeOff, X } from 'lucide-react';
+
+interface PasswordModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onVerify: (password: string) => Promise<boolean>;
+  title: string;
+}
+
+export function PasswordModal({ isOpen, onClose, onVerify, title }: PasswordModalProps) {
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    
+    const valid = await onVerify(password);
+    
+    setLoading(false);
+    if (!valid) {
+      setError('Senha incorreta');
+      setPassword('');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center gap-2">
+            <Lock className="text-gray-600" size={20} />
+            <h2 className="text-lg font-semibold">Acesso Restrito</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X size={20} />
+          </button>
+        </div>
+        
+        <p className="text-gray-600 mb-4">{title}</p>
+        
+        <form onSubmit={handleSubmit}>
+          <div className="relative mb-4">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Digite a senha"
+              className="w-full px-4 py-2 border rounded-lg pr-10 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          
+          {error && (
+            <p className="text-red-500 text-sm mb-4">{error}</p>
+          )}
+          
+          <div className="flex gap-3 justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading || !password}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+            >
+              {loading ? 'Verificando...' : 'Acessar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## Uso nas Páginas Protegidas
+```tsx
+// pages/Relatorios.tsx
+
+import { useEffect } from 'react';
+import { useProtectedAccess } from '../hooks/useProtectedAccess';
+import { PasswordModal } from '../components/PasswordModal';
+
+export function Relatorios() {
+  const { 
+    isLocked, 
+    showPasswordModal, 
+    setShowPasswordModal, 
+    verifyPassword,
+    unlock 
+  } = useProtectedAccess('relatorios');
+
+  useEffect(() => {
+    unlock(); // Verifica se já desbloqueou nesta sessão
+    
+    // Se ainda estiver bloqueado, mostra modal
+    if (isLocked) {
+      setShowPasswordModal(true);
+    }
+  }, []);
+
+  if (isLocked) {
+    return (
+      <PasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => window.history.back()} // Volta para página anterior
+        onVerify={verifyPassword}
+        title="Digite a senha para acessar os Relatórios"
+      />
+    );
+  }
+
+  return (
+    // ... conteúdo normal da página
+  );
+}
+```
+
+---
+
+## Uso no Botão de Excluir
+```tsx
+// Exemplo em qualquer lista com botão excluir
+
+const [showDeletePassword, setShowDeletePassword] = useState(false);
+const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+
+const handleDeleteClick = (id: number) => {
+  setItemToDelete(id);
+  setShowDeletePassword(true);
+};
+
+const handleDeleteConfirm = async (password: string) => {
+  const res = await fetch('/api/settings/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ area: 'delete', password })
+  });
+  
+  if (res.ok && itemToDelete) {
+    // Executar exclusão
+    await fetch(`/api/prescribers/${itemToDelete}`, { method: 'DELETE' });
+    // Atualizar lista
+    refetch();
+    setShowDeletePassword(false);
+    return true;
+  }
+  return false;
+};
+
+// No JSX:
+<PasswordModal
+  isOpen={showDeletePassword}
+  onClose={() => setShowDeletePassword(false)}
+  onVerify={handleDeleteConfirm}
+  title="Digite a senha para excluir este item"
+/>
+```
+
+---
+
+## Página de Configurações
+```tsx
+// pages/Configuracoes.tsx
+
+import { useState, useEffect } from 'react';
+import { Settings, Eye, EyeOff, Save } from 'lucide-react';
+
+interface SettingsState {
+  relatorios_protected: boolean;
+  relatorios_password: string;
+  delete_protected: boolean;
+  delete_password: string;
+  config_protected: boolean;
+  config_password: string;
+}
+
+export function Configuracoes() {
+  const [settings, setSettings] = useState<SettingsState>({
+    relatorios_protected: true,
+    relatorios_password: '',
+    delete_protected: true,
+    delete_password: '',
+    config_protected: true,
+    config_password: ''
+  });
+  
+  const [showPasswords, setShowPasswords] = useState({
+    relatorios: false,
+    delete: false,
+    config: false
+  });
+  
+  const [saving, setSaving] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+
+  const handleSave = async () => {
+    setSaving(true);
+    
+    const res = await fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings, currentPassword })
+    });
+    
+    setSaving(false);
+    
+    if (res.ok) {
+      alert('Configurações salvas com sucesso!');
+    } else {
+      alert('Erro ao salvar. Verifique a senha atual.');
+    }
+  };
+
+  const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) => (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={`w-12 h-6 rounded-full transition-colors ${
+        checked ? 'bg-green-500' : 'bg-gray-300'
+      }`}
+    >
+      <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
+        checked ? 'translate-x-6' : 'translate-x-0.5'
+      }`} />
+    </button>
+  );
+
+  const PasswordField = ({ 
+    value, 
+    onChange, 
+    show, 
+    onToggleShow 
+  }: { 
+    value: string; 
+    onChange: (v: string) => void;
+    show: boolean;
+    onToggleShow: () => void;
+  }) => (
+    <div className="relative">
+      <input
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-3 py-2 border rounded-lg pr-10"
+        placeholder="Digite a senha"
+      />
+      <button
+        type="button"
+        onClick={onToggleShow}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+      >
+        {show ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="p-6 max-w-2xl mx-auto">
+      <div className="flex items-center gap-3 mb-2">
+        <Settings className="text-gray-600" size={28} />
+        <h1 className="text-2xl font-bold text-gray-800">Configurações</h1>
+      </div>
+      <p className="text-gray-600 mb-6">
+        Gerencie as senhas e bloqueios de acesso do sistema.
+      </p>
+
+      <div className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          🔒 Controle de Acesso por Área
+        </h2>
+
+        {/* Relatórios */}
+        <div className="border-b pb-4">
+          <div className="flex justify-between items-center mb-3">
+            <span className="font-medium">Relatórios</span>
+            <Toggle
+              checked={settings.relatorios_protected}
+              onChange={(v) => setSettings({ ...settings, relatorios_protected: v })}
+            />
+          </div>
+          {settings.relatorios_protected && (
+            <div className="ml-4">
+              <label className="text-sm text-gray-600 mb-1 block">Senha:</label>
+              <PasswordField
+                value={settings.relatorios_password}
+                onChange={(v) => setSettings({ ...settings, relatorios_password: v })}
+                show={showPasswords.relatorios}
+                onToggleShow={() => setShowPasswords({ ...showPasswords, relatorios: !showPasswords.relatorios })}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Excluir */}
+        <div className="border-b pb-4">
+          <div className="flex justify-between items-center mb-3">
+            <span className="font-medium">Excluir Cadastros/Fórmulas</span>
+            <Toggle
+              checked={settings.delete_protected}
+              onChange={(v) => setSettings({ ...settings, delete_protected: v })}
+            />
+          </div>
+          {settings.delete_protected && (
+            <div className="ml-4">
+              <label className="text-sm text-gray-600 mb-1 block">Senha:</label>
+              <PasswordField
+                value={settings.delete_password}
+                onChange={(v) => setSettings({ ...settings, delete_password: v })}
+                show={showPasswords.delete}
+                onToggleShow={() => setShowPasswords({ ...showPasswords, delete: !showPasswords.delete })}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Configurações */}
+        <div className="pb-4">
+          <div className="flex justify-between items-center mb-3">
+            <span className="font-medium">Configurações (esta página)</span>
+            <Toggle
+              checked={settings.config_protected}
+              onChange={(v) => setSettings({ ...settings, config_protected: v })}
+            />
+          </div>
+          {settings.config_protected && (
+            <div className="ml-4">
+              <label className="text-sm text-gray-600 mb-1 block">Senha:</label>
+              <PasswordField
+                value={settings.config_password}
+                onChange={(v) => setSettings({ ...settings, config_password: v })}
+                show={showPasswords.config}
+                onToggleShow={() => setShowPasswords({ ...showPasswords, config: !showPasswords.config })}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Senha atual para salvar */}
+        <div className="border-t pt-4">
+          <label className="text-sm text-gray-600 mb-1 block">
+            Senha atual (para confirmar alterações):
+          </label>
+          <input
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg mb-4"
+            placeholder="Digite a senha atual de configurações"
+          />
+          
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
+          >
+            <Save size={18} />
+            {saving ? 'Salvando...' : 'Salvar Configurações'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## Resumo
+
+| Funcionalidade | Descrição |
+|----------------|-----------|
+| Toggle ON/OFF | Liga/desliga exigência de senha por área |
+| Senhas individuais | Cada área tem sua própria senha |
+| Sessão temporária | Após desbloquear, não pede de novo até fechar o navegador |
+| Proteção das configurações | A própria página de config pode ser protegida |
+| Senha atual para salvar | Precisa confirmar senha atual para alterar configurações |
