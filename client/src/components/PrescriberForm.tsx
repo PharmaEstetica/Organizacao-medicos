@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,11 +20,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useApp } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
 import { Prescriber } from "@/types";
-import { User, Stethoscope, FileBadge, Percent } from "lucide-react";
+import { User, Stethoscope, FileBadge, Percent, Package, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 const formSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -34,6 +50,7 @@ const formSchema = z.object({
   bond_type: z.enum(["P", "C", "N"], {
     required_error: "Selecione o tipo de vínculo",
   }),
+  linked_packagings: z.array(z.number()).default([]),
 });
 
 interface PrescriberFormProps {
@@ -42,8 +59,9 @@ interface PrescriberFormProps {
 }
 
 export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) {
-  const { addPrescriber, updatePrescriber } = useApp();
+  const { addPrescriber, updatePrescriber, packagings } = useApp();
   const { toast } = useToast();
+  const [openPackagings, setOpenPackagings] = useState(false);
 
   const defaultValues: Partial<z.infer<typeof formSchema>> = initialData ? {
     name: initialData.name,
@@ -52,6 +70,7 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
     crm_required: initialData.crm_required,
     commission_percentage: initialData.commission_percentage,
     bond_type: initialData.bond_type,
+    linked_packagings: initialData.linked_packagings || [],
   } : {
     name: "",
     specialty: "",
@@ -59,6 +78,7 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
     crm_required: true,
     commission_percentage: 10,
     bond_type: "P",
+    linked_packagings: [],
   };
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -71,6 +91,7 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
       const prescriberData = {
         ...values,
         crm: values.crm || null,
+        packagings_count: values.linked_packagings.length,
       };
 
       if (initialData) {
@@ -96,6 +117,8 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
       });
     }
   }
+
+  const selectedPackagings = form.watch("linked_packagings");
 
   return (
     <Form {...form}>
@@ -153,6 +176,82 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
             )}
           />
         </div>
+
+        <FormField
+            control={form.control}
+            name="linked_packagings"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Embalagens Vinculadas</FormLabel>
+                <Popover open={openPackagings} onOpenChange={setOpenPackagings}>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn(
+                          "justify-between h-auto min-h-[44px] py-2 px-3 rounded-sm border-border bg-muted/20 focus:bg-background hover:bg-muted/30 font-normal text-left",
+                          !field.value?.length && "text-muted-foreground"
+                        )}
+                      >
+                        {field.value?.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {field.value.map((id) => {
+                                const pkg = packagings.find(p => p.id === id);
+                                return pkg ? (
+                                    <Badge key={id} variant="secondary" className="mr-1 mb-1">
+                                        {pkg.name} ({pkg.capacity})
+                                    </Badge>
+                                ) : null;
+                            })}
+                          </div>
+                        ) : (
+                          "Selecione as embalagens..."
+                        )}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar embalagem..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhuma embalagem encontrada.</CommandEmpty>
+                        <CommandGroup>
+                          {packagings.map((pkg) => (
+                            <CommandItem
+                              value={pkg.name}
+                              key={pkg.id}
+                              onSelect={() => {
+                                const current = field.value || [];
+                                const isSelected = current.includes(pkg.id);
+                                if (isSelected) {
+                                  field.onChange(current.filter((id) => id !== pkg.id));
+                                } else {
+                                  field.onChange([...current, pkg.id]);
+                                }
+                              }}
+                            >
+                              <div className={cn(
+                                "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                (field.value || []).includes(pkg.id)
+                                  ? "bg-primary text-primary-foreground"
+                                  : "opacity-50 [&_svg]:invisible"
+                              )}>
+                                <Check className={cn("h-4 w-4")} />
+                              </div>
+                              {pkg.name} <span className="text-muted-foreground ml-1">({pkg.capacity})</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField

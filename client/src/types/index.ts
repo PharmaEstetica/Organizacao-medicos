@@ -14,6 +14,7 @@ export interface Prescriber {
   photo_url?: string;
   formulas_count?: number;
   packagings_count?: number;
+  linked_packagings?: number[];
 }
 
 export interface ParsedOrder {
