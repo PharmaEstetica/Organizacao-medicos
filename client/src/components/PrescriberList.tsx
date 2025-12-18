@@ -30,12 +30,7 @@ export function PrescriberList({ onEdit }: PrescriberListProps) {
   const { prescribers, deletePrescriber } = useApp();
 
   const getBondLabel = (type: string) => {
-    switch (type) {
-      case 'P': return 'Parceiro';
-      case 'C': return 'Parceiro (C)';
-      case 'N': return 'Nenhum';
-      default: return type;
-    }
+    return type;
   };
 
   return (
