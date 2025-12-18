@@ -14,63 +14,66 @@ export default function Buscar() {
   );
 
   return (
-    <div className="container py-10 max-w-screen-2xl space-y-8">
-      <div className="text-center space-y-4 max-w-2xl mx-auto">
-        <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-primary to-violet-600 bg-clip-text text-transparent">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="text-center space-y-4 max-w-2xl mx-auto py-12">
+        <h1 className="text-5xl font-bold tracking-tight text-primary">
           Buscar Prescritor
         </h1>
-        <p className="text-muted-foreground text-lg">
+        <p className="text-muted-foreground text-xl font-light">
           Encontre rapidamente informações sobre médicos e parceiros cadastrados.
         </p>
         
-        <div className="relative mt-8">
-          <Search className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
+        <div className="relative mt-8 group">
+          <Search className="absolute left-4 top-4 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
           <Input 
             placeholder="Pesquisar por nome ou especialidade..." 
-            className="pl-12 h-12 text-lg rounded-full shadow-sm border-primary/20 bg-background/50 backdrop-blur-sm focus:bg-background transition-all"
+            className="pl-12 h-14 text-lg rounded-none border-b-2 border-x-0 border-t-0 border-border bg-transparent focus:border-primary focus:ring-0 px-0 transition-all placeholder:text-muted-foreground/50"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredPrescribers.map((prescriber) => (
-          <Card key={prescriber.id} className="overflow-hidden hover:shadow-lg transition-all duration-300 border-border/50 bg-card/50 backdrop-blur-sm group">
+          <Card key={prescriber.id} className="group hover:border-primary/50 transition-colors duration-300 rounded-sm border-border/60 bg-card">
             <CardContent className="p-0">
-              <div className="bg-gradient-to-r from-primary/10 to-violet-100/50 p-6 flex flex-col items-center">
-                <div className="relative mb-4">
-                  <div className="h-24 w-24 rounded-full overflow-hidden border-4 border-white shadow-md">
+              <div className="p-6 flex items-start gap-4">
+                <div className="relative">
+                  <div className="h-16 w-16 rounded-sm bg-secondary flex items-center justify-center text-secondary-foreground text-2xl font-bold overflow-hidden">
                     {prescriber.photo_url ? (
                       <img src={prescriber.photo_url} alt={prescriber.name} className="h-full w-full object-cover" />
                     ) : (
-                      <div className="h-full w-full bg-primary/20 flex items-center justify-center text-primary text-2xl font-bold">
-                        {prescriber.name.charAt(0)}
-                      </div>
+                      prescriber.name.charAt(0)
                     )}
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-center">{prescriber.name}</h3>
-                <p className="text-primary font-medium">{prescriber.specialty}</p>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-bold leading-none">{prescriber.name}</h3>
+                  <p className="text-sm text-muted-foreground">{prescriber.specialty}</p>
+                  <div className="pt-2 flex gap-2">
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-1 bg-secondary rounded-sm text-secondary-foreground">
+                      {prescriber.bond_type === 'P' ? 'Parceiro' : prescriber.bond_type === 'C' ? 'Comissionado' : 'Neutro'}
+                    </span>
+                  </div>
+                </div>
               </div>
               
-              <div className="p-6 grid grid-cols-2 gap-4 divide-x divide-border/50">
-                <div className="text-center space-y-1">
-                  <div className="flex items-center justify-center gap-2 text-muted-foreground mb-1">
-                    <FlaskConical className="h-4 w-4" />
-                    <span className="text-xs font-semibold uppercase tracking-wider">Fórmulas</span>
+              <div className="px-6 pb-6 pt-0 grid grid-cols-2 gap-4 border-t border-border/40 mt-2 pt-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <FlaskConical className="h-3.5 w-3.5" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Fórmulas</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">{prescriber.formulas_count || 0}</p>
-                  <p className="text-xs text-muted-foreground">Criadas</p>
+                  <p className="text-xl font-bold">{prescriber.formulas_count || 0}</p>
                 </div>
                 
-                <div className="text-center space-y-1">
-                  <div className="flex items-center justify-center gap-2 text-muted-foreground mb-1">
-                    <Package className="h-4 w-4" />
-                    <span className="text-xs font-semibold uppercase tracking-wider">Embalagens</span>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Package className="h-3.5 w-3.5" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Embalagens</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">{prescriber.packagings_count || 0}</p>
-                  <p className="text-xs text-muted-foreground">Disponíveis</p>
+                  <p className="text-xl font-bold">{prescriber.packagings_count || 0}</p>
                 </div>
               </div>
             </CardContent>
@@ -78,8 +81,8 @@ export default function Buscar() {
         ))}
         
         {filteredPrescribers.length === 0 && (
-          <div className="col-span-full text-center py-12 text-muted-foreground">
-            Nenhum prescritor encontrado.
+          <div className="col-span-full text-center py-20 bg-muted/10 rounded-sm border border-dashed border-border">
+            <p className="text-muted-foreground">Nenhum prescritor encontrado com esse termo.</p>
           </div>
         )}
       </div>

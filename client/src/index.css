@@ -54,46 +54,47 @@
 }
 
 /* 
-  NEW ART DIRECTION: "Aether" - Sophisticated, Dark-leaning defaults but clean Light mode.
-  - Very deep navy/slate backgrounds for dark mode.
-  - Crisp, almost clinical white for light mode with sharp typography.
-  - Accent color: A sophisticated Electric Indigo.
+  NEW ART DIRECTION: "Linear / Swiss Professional"
+  - Minimalist, high contrast, clean lines.
+  - Neutral grays with a strong, corporate primary color (Deep Teal/Slate).
+  - Lots of whitespace.
+  - Boxy, precise feel.
 */
 
 :root {
-  /* Light Mode */
-  --background: 210 20% 99%; /* Almost white */
-  --foreground: 224 71% 4%; /* Deepest blue-black */
+  --background: 0 0% 100%; /* Pure White */
+  --foreground: 240 10% 3.9%;
 
   --card: 0 0% 100%;
-  --card-foreground: 224 71% 4%;
+  --card-foreground: 240 10% 3.9%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 224 71% 4%;
+  --popover-foreground: 240 10% 3.9%;
 
-  /* Electric Indigo - Sophisticated but Punchy */
-  --primary: 262 83% 58%; 
-  --primary-foreground: 210 20% 98%;
+  /* Corporate Teal / Slate */
+  --primary: 200 50% 20%; 
+  --primary-foreground: 0 0% 98%;
 
-  --secondary: 220 14% 96%;
-  --secondary-foreground: 220 14% 30%; /* Muted text for secondary */
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
 
-  --muted: 220 14% 96%;
-  --muted-foreground: 220 8% 46%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
 
-  --accent: 262 83% 58%; /* Same as primary for consistency in this theme */
-  --accent-foreground: 210 20% 98%;
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
 
   --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive-foreground: 0 0% 98%;
 
-  --border: 220 13% 91%;
-  --input: 220 13% 91%;
-  --ring: 262 83% 58%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 240 5% 64.9%;
 
-  --radius: 0.5rem; /* Back to slightly tighter radius for a more professional feel */
+  --radius: 0rem; /* Sharp corners for modern/brutalist feel, or slightly rounded 0.25rem */
+  --radius: 0.25rem;
 
-  --chart-1: 262 83% 58%;
+  --chart-1: 200 50% 20%;
   --chart-2: 173 58% 39%;
   --chart-3: 197 37% 24%;
   --chart-4: 43 74% 66%;
@@ -107,40 +108,39 @@
   --sidebar-accent-foreground: 240 5.9% 10%;
   --sidebar-border: 220 13% 91%;
   --sidebar-ring: 217.2 91.2% 59.8%;
-  
-  /* Fonts */
-  --font-sans: 'Inter', system-ui, sans-serif; /* Back to Inter for maximum legibility/utility */
-  --font-serif: 'Playfair Display', serif; /* Sophisticated headers */
+
+  --font-sans: 'Geist', 'Inter', sans-serif;
+  --font-serif: 'Geist', 'Inter', sans-serif; /* Unifying font for ultra-clean look */
 }
 
 .dark {
-  --background: 224 71% 4%; /* Deep midnight */
-  --foreground: 210 20% 98%;
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
 
-  --card: 224 71% 4%;
-  --card-foreground: 210 20% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
 
-  --popover: 224 71% 4%;
-  --popover-foreground: 210 20% 98%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
 
-  --primary: 263 70% 50%;
-  --primary-foreground: 210 20% 98%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 5.9% 10%;
 
-  --secondary: 215 27% 17%;
-  --secondary-foreground: 210 20% 98%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
 
-  --muted: 215 27% 17%;
-  --muted-foreground: 215 20% 65%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
 
-  --accent: 215 27% 17%;
-  --accent-foreground: 210 20% 98%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
 
   --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 20% 98%;
+  --destructive-foreground: 0 0% 98%;
 
-  --border: 215 27% 17%;
-  --input: 215 27% 17%;
-  --ring: 263 70% 50%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --ring: 240 4.9% 83.9%;
 
   --chart-1: 220 70% 50%;
   --chart-2: 160 60% 45%;
@@ -166,15 +166,6 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-serif font-semibold tracking-tight;
+    @apply font-bold tracking-tight text-primary;
   }
-}
-
-/* Sophisticated Components Overrides */
-.glass-header {
-  @apply bg-background/80 backdrop-blur-md border-b border-border/50 sticky top-0 z-50;
-}
-
-.table-row-hover {
-  @apply transition-colors hover:bg-muted/50;
 }

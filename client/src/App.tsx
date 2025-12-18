@@ -15,8 +15,8 @@ import Buscar from "@/pages/Buscar";
 
 function Router() {
   return (
-    <div className="mx-auto max-w-7xl p-6 pt-8">
-      <div className="glass-card min-h-[calc(100vh-140px)] rounded-3xl p-8 animate-in fade-in duration-500 slide-in-from-bottom-4">
+    <div className="w-full bg-muted/20 min-h-screen">
+      <div className="max-w-screen-2xl mx-auto p-6 lg:p-10 animate-in fade-in duration-500">
         <Switch>
           <Route path="/" component={Buscar} />
           <Route path="/cadastros" component={Cadastros} />
@@ -34,9 +34,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AppProvider>
         <TooltipProvider>
-          <div className="min-h-screen bg-background font-sans antialiased bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/50 via-background to-background dark:from-indigo-950/20">
+          <div className="min-h-screen bg-background font-sans antialiased">
             <Header />
-            <main className="relative z-10">
+            <main>
               <Router />
             </main>
           </div>

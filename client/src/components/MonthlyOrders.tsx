@@ -37,83 +37,83 @@ export function MonthlyOrders({ filterMonth = 'all' }: MonthlyOrdersProps) {
   const totalValue = filteredOrders.reduce((acc, order) => acc + order.netValue, 0);
 
   return (
-    <Card className="border-none shadow-none bg-transparent">
-      <CardHeader className="px-0 pt-0 pb-6">
-        <div className="flex justify-between items-end">
+    <Card className="border border-border rounded-sm bg-card shadow-sm">
+      <CardHeader className="border-b border-border/40 pb-4 bg-muted/10">
+        <div className="flex justify-between items-center">
           <div>
-            <CardTitle className="text-xl font-bold flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              Pedidos de Parceiros
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              Tabela de Pedidos
             </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              {filterMonth === 'all' ? 'Todos os pedidos' : `Pedidos de ${filterMonth}`}
-            </p>
           </div>
-          <div className="text-right">
-            <p className="text-sm font-medium text-muted-foreground mb-1">Valor Total</p>
-            <div className="text-3xl font-bold text-primary flex items-center gap-2">
+          <div className="text-right flex items-center gap-3 bg-background border border-border px-3 py-1.5 rounded-sm">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total</span>
+            <div className="text-lg font-bold text-primary">
               {formatCurrency(totalValue)}
-              <TrendingUp className="h-5 w-5 opacity-50" />
             </div>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="px-0">
-        <div className="rounded-xl border border-border/50 overflow-hidden bg-card shadow-sm">
-          <Table>
-            <TableHeader className="bg-muted/30">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="font-semibold">Data</TableHead>
-                <TableHead className="font-semibold">Parceiro</TableHead>
-                <TableHead className="font-semibold">REQ / Pedidos</TableHead>
-                <TableHead className="font-semibold">Status</TableHead>
-                <TableHead className="font-semibold">Pagamento</TableHead>
-                <TableHead className="text-right font-semibold">Valor Líquido</TableHead>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader className="bg-muted/20">
+            <TableRow className="hover:bg-transparent border-b border-border/60">
+              <TableHead className="h-10 font-bold text-xs uppercase tracking-wider text-muted-foreground">Data</TableHead>
+              <TableHead className="h-10 font-bold text-xs uppercase tracking-wider text-muted-foreground">Parceiro</TableHead>
+              <TableHead className="h-10 font-bold text-xs uppercase tracking-wider text-muted-foreground">REQ / Pedidos</TableHead>
+              <TableHead className="h-10 font-bold text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
+              <TableHead className="h-10 font-bold text-xs uppercase tracking-wider text-muted-foreground">Pagamento</TableHead>
+              <TableHead className="h-10 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">Valor Líquido</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredOrders.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                  Nenhum pedido encontrado.
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrders.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                    Nenhum pedido encontrado.
+            ) : (
+              filteredOrders.map((order, index) => (
+                <TableRow key={`${order.prescriberName}-${index}`} className="hover:bg-muted/30 transition-colors border-b border-border/40">
+                  <TableCell className="text-muted-foreground py-3 text-sm">
+                    {format(new Date(order.orderDate), "dd/MM/yyyy", { locale: ptBR })}
+                  </TableCell>
+                  <TableCell className="font-semibold text-foreground text-sm">{order.prescriberName}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground font-mono">
+                    {order.req ? <span className="text-primary font-bold">#{order.req}</span> : order.orderNumbers.join(", ")}
+                  </TableCell>
+                  <TableCell>
+                    <Badge 
+                      variant="outline"
+                      className={`rounded-sm border font-medium px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                        order.status === 'Efetivado' 
+                        ? "border-emerald-500/30 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20" 
+                        : "border-slate-300 text-slate-500 bg-slate-50 dark:bg-slate-900"
+                      }`}
+                    >
+                      {order.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {order.paymentStatus && (
+                      <span className={`text-xs font-bold px-2 py-1 rounded-sm ${
+                        order.paymentStatus === 'Pago' 
+                        ? 'text-green-600 bg-green-100/50' 
+                        : 'text-amber-600 bg-amber-100/50'
+                      }`}>
+                        {order.paymentStatus}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-foreground text-sm font-mono">
+                    {formatCurrency(order.netValue)}
                   </TableCell>
                 </TableRow>
-              ) : (
-                filteredOrders.map((order, index) => (
-                  <TableRow key={`${order.prescriberName}-${index}`} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="text-muted-foreground">
-                      {format(new Date(order.orderDate), "dd/MM/yyyy", { locale: ptBR })}
-                    </TableCell>
-                    <TableCell className="font-medium text-foreground">{order.prescriberName}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground font-mono">
-                      {order.req ? `REQ: ${order.req}` : order.orderNumbers.join(", ")}
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant="secondary"
-                        className={order.status === 'Efetivado' 
-                          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400" 
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"}
-                      >
-                        {order.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {order.paymentStatus && (
-                        <Badge variant="outline" className={order.paymentStatus === 'Pago' ? "border-green-500 text-green-600" : "border-amber-500 text-amber-600"}>
-                          {order.paymentStatus}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-bold text-foreground">
-                      {formatCurrency(order.netValue)}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );
