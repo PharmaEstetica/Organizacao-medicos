@@ -33,18 +33,35 @@ export default function Relatorios() {
     return `${date.getMonth() + 1}/${date.getFullYear()}`;
   }))).sort();
 
-  const formatCurrency = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  const formatCurrency = (val: number) => {
+    return val.toLocaleString('pt-BR', { 
+      style: 'currency', 
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
+
+  const sortByDate = (orders: any[]) => {
+    return [...orders].sort((a, b) => 
+      new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime()
+    );
+  };
 
   const generatePrescriberPDF = (prescriber: any, effectiveOrders: any[], nonEffectiveOrders: any[], monthYear: string, expenses: number = 0, expenseDetails: { req: string; value: number }[] = []) => {
     const doc = new jsPDF();
     const commissionRate = parseFloat(prescriber.commissionPercentage);
-    const totalEffectiveValue = effectiveOrders.reduce((sum, o) => sum + parseFloat(o.netValue), 0);
+    
+    const sortedEffective = sortByDate(effectiveOrders);
+    const sortedNonEffective = sortByDate(nonEffectiveOrders);
+    
+    const totalEffectiveValue = sortedEffective.reduce((sum, o) => sum + parseFloat(o.netValue), 0);
     const totalCommission = totalEffectiveValue * (commissionRate / 100);
-    const totalNonEffectiveValue = nonEffectiveOrders.reduce((sum, o) => sum + parseFloat(o.netValue), 0);
+    const totalNonEffectiveValue = sortedNonEffective.reduce((sum, o) => sum + parseFloat(o.netValue), 0);
     const totalNonEffectiveCommission = totalNonEffectiveValue * (commissionRate / 100);
     
-    const conversionRate = (effectiveOrders.length + nonEffectiveOrders.length) > 0
-      ? (effectiveOrders.length / (effectiveOrders.length + nonEffectiveOrders.length)) * 100 
+    const conversionRate = (sortedEffective.length + sortedNonEffective.length) > 0
+      ? (sortedEffective.length / (sortedEffective.length + sortedNonEffective.length)) * 100 
       : 0;
 
     const finalBalance = totalCommission - expenses;
@@ -66,7 +83,7 @@ export default function Relatorios() {
 
     const tableHeaders = [['Data', 'Status', 'Valor Líquido', 'Paciente', `${prescriber.commissionPercentage}%`]];
 
-    const effectiveRows = effectiveOrders.map(o => [
+    const effectiveRows = sortedEffective.map(o => [
       new Date(o.orderDate).toLocaleDateString('pt-BR'),
       "Aprovado",
       formatCurrency(parseFloat(o.netValue)),
@@ -75,17 +92,19 @@ export default function Relatorios() {
     ]);
 
     const effectiveFooter: (string | { content: string; styles: any })[][] = [
-      ['TOTAL', '', formatCurrency(totalEffectiveValue), '', formatCurrency(totalCommission)],
+      [{ content: 'TOTAL', styles: { fontStyle: 'bold' } }, '', { content: formatCurrency(totalEffectiveValue), styles: { fontStyle: 'bold' } }, '', { content: formatCurrency(totalCommission), styles: { fontStyle: 'bold' } }],
     ];
 
-    if (expenses > 0 && expenseDetails.length > 0) {
-      const reqNumbers = expenseDetails.map(e => e.req).join(', ');
+    if (expenses > 0) {
+      const reqNumbers = expenseDetails.length > 0 
+        ? expenseDetails.map(e => e.req).join(', ')
+        : '';
       effectiveFooter.push([
-        { content: 'COMPRAS', styles: { textColor: [200, 0, 0] } },
-        { content: `REQ ${reqNumbers}`, styles: { textColor: [200, 0, 0] } },
+        { content: 'COMPRAS', styles: { textColor: [200, 0, 0], fontStyle: 'bold' } },
+        { content: reqNumbers ? `REQ ${reqNumbers}` : '', styles: { textColor: [200, 0, 0] } },
         '',
         '',
-        { content: `- ${formatCurrency(expenses)}`, styles: { textColor: [200, 0, 0] } }
+        { content: `- ${formatCurrency(expenses)}`, styles: { textColor: [200, 0, 0], fontStyle: 'bold' } }
       ]);
     }
 
@@ -102,25 +121,31 @@ export default function Relatorios() {
       head: tableHeaders,
       body: effectiveRows,
       foot: effectiveFooter,
-      theme: 'plain',
+      theme: 'grid',
       headStyles: {
-        fillColor: [230, 208, 222],
+        fillColor: [245, 245, 245],
         textColor: [0, 0, 0],
         fontStyle: 'bold',
-        fontSize: 10,
+        fontSize: 9,
         cellPadding: 3,
+        lineColor: [200, 200, 200],
+        lineWidth: 0.5,
       },
       bodyStyles: {
         fontSize: 9,
         textColor: [0, 0, 0],
         cellPadding: 3,
+        lineColor: [220, 220, 220],
+        lineWidth: 0.3,
       },
       footStyles: {
         fillColor: [255, 255, 255],
         textColor: [0, 0, 0],
         fontStyle: 'normal',
-        fontSize: 10,
+        fontSize: 9,
         cellPadding: 3,
+        lineColor: [200, 200, 200],
+        lineWidth: 0.5,
       },
       columnStyles: {
         0: { cellWidth: 25 },
@@ -129,18 +154,19 @@ export default function Relatorios() {
         3: { cellWidth: 'auto' },
         4: { cellWidth: 30, halign: 'right' },
       },
+      showFoot: 'lastPage',
     });
 
     // @ts-ignore
     currentY = doc.lastAutoTable.finalY + 20;
 
-    if (nonEffectiveOrders.length > 0) {
+    if (sortedNonEffective.length > 0) {
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
         doc.text("Pedidos não efetivados", 14, currentY);
         currentY += 5;
 
-        const nonEffectiveRows = nonEffectiveOrders.map(o => [
+        const nonEffectiveRows = sortedNonEffective.map(o => [
             new Date(o.orderDate).toLocaleDateString('pt-BR'),
             o.status,
             formatCurrency(parseFloat(o.netValue)),
@@ -148,8 +174,8 @@ export default function Relatorios() {
             formatCurrency(parseFloat(o.netValue) * (commissionRate / 100))
         ]);
 
-        const nonEffectiveFooter = [
-            ['TOTAL', '', formatCurrency(totalNonEffectiveValue), '', formatCurrency(totalNonEffectiveCommission)]
+        const nonEffectiveFooter: any[][] = [
+            [{ content: 'TOTAL', styles: { fontStyle: 'bold' } }, '', { content: formatCurrency(totalNonEffectiveValue), styles: { fontStyle: 'bold' } }, '', { content: formatCurrency(totalNonEffectiveCommission), styles: { fontStyle: 'bold' } }]
         ];
 
         autoTable(doc, {
@@ -157,25 +183,31 @@ export default function Relatorios() {
             head: tableHeaders,
             body: nonEffectiveRows,
             foot: nonEffectiveFooter,
-            theme: 'plain',
+            theme: 'grid',
             headStyles: {
-                fillColor: [230, 208, 222],
+                fillColor: [245, 245, 245],
                 textColor: [0, 0, 0],
                 fontStyle: 'bold',
-                fontSize: 10,
+                fontSize: 9,
                 cellPadding: 3,
+                lineColor: [200, 200, 200],
+                lineWidth: 0.5,
             },
             bodyStyles: {
                 fontSize: 9,
                 textColor: [0, 0, 0],
                 cellPadding: 3,
+                lineColor: [220, 220, 220],
+                lineWidth: 0.3,
             },
             footStyles: {
                 fillColor: [255, 255, 255],
                 textColor: [0, 0, 0],
                 fontStyle: 'bold',
-                fontSize: 10,
+                fontSize: 9,
                 cellPadding: 3,
+                lineColor: [200, 200, 200],
+                lineWidth: 0.5,
             },
             columnStyles: {
                 0: { cellWidth: 25 },
@@ -184,6 +216,7 @@ export default function Relatorios() {
                 3: { cellWidth: 'auto' },
                 4: { cellWidth: 30, halign: 'right' },
             },
+            showFoot: 'lastPage',
         });
     }
 

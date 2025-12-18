@@ -1,0 +1,288 @@
+# CORREÇÕES DO PDF - AJUSTES VISUAIS E LÓGICOS
+
+## ARQUIVO DE REFERÊNCIA OBRIGATÓRIO
+
+Usar como modelo visual: `Relatorio_BRUNO_FRAUCHES_SOUZA_202512_01__4_.pdf`
+
+---
+
+## PROBLEMAS IDENTIFICADOS
+
+### 1. ❌ Valores de comissão com casas decimais erradas
+**Atual:** R$ 35,625 | R$ 53,799 | R$ 483,897
+**Correto:** R$ 35,63 | R$ 53,80 | R$ 483,90 (sempre 2 casas decimais)
+
+### 2. ❌ Linha "COMPRAS" não aparece no PDF
+**Atual:** Só mostra SALDO sem mostrar o que foi descontado
+**Correto:** Mostrar linha "COMPRAS REQ XXXX - R$ XXX,XX" antes do SALDO
+
+### 3. ❌ "Pedidos não efetivados" somando duas vezes
+**Atual:** TOTAL aparece 2x (uma em cada página)
+**Correto:** TOTAL aparece apenas 1x no final de todos os não efetivados
+
+### 4. ❌ Falta de linhas divisórias e cores
+**Atual:** Sem linhas, visual "solto"
+**Correto:** Linhas horizontais separando seções, fundo cinza claro no header da tabela
+
+### 5. ❌ Ordenação das datas invertida
+**Atual:** Datas de trás pra frente (09/12 antes de 01/12)
+**Correto:** Ordem cronológica (01/12, 02/12, 03/12...)
+
+---
+
+## CORREÇÃO 1: Formatação de Valores (2 casas decimais)
+```typescript
+function formatCurrency(value: number): string {
+  return value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2  // SEMPRE 2 casas
+  });
+}
+
+// Exemplo:
+// 35.625 → "R$ 35,63" (arredonda)
+// 483.897 → "R$ 483,90"
+```
+
+---
+
+## CORREÇÃO 2: Mostrar linha COMPRAS no PDF
+```typescript
+// Se houver pedidos de parceiros (despesas), mostrar no PDF:
+
+// Após linha TOTAL dos efetivados:
+if (expenses > 0 && expenseDetails.length > 0) {
+  // Linha COMPRAS em vermelho
+  doc
+    .fillColor('#CC0000')  // Vermelho
+    .fontSize(10)
+    .font('Helvetica-Bold')
+    .text(`COMPRAS REQ ${expenseDetails.map(e => e.req).join(', ')}`, 50, y)
+    .text(`- ${formatCurrency(expenses)}`, 450, y, { align: 'right', width: 70 });
+  
+  y += 20;
+}
+
+// Linha SALDO (comissão - despesas)
+doc
+  .fillColor('#000000')
+  .font('Helvetica-Bold')
+  .fontSize(10)
+  .text('SALDO', 50, y)
+  .text(formatCurrency(commission - expenses), 450, y, { align: 'right', width: 70 });
+```
+
+---
+
+## CORREÇÃO 3: TOTAL dos não efetivados apenas 1x
+```typescript
+// Problema: está somando em cada página
+// Solução: só mostrar TOTAL após o ÚLTIMO pedido não efetivado
+
+function drawNonEffectiveSection(doc, orders, commissionPct) {
+  let y = currentY;
+  
+  // Header da seção
+  doc.text('Pedidos não efetivados', 50, y);
+  y += 20;
+  
+  // Header da tabela
+  y = drawTableHeader(doc, y, commissionPct);
+  
+  // Desenhar TODOS os pedidos (com quebra de página se necessário)
+  for (let i = 0; i < orders.length; i++) {
+    if (y > 720) {
+      doc.addPage();
+      y = 40;
+      y = drawTableHeader(doc, y, commissionPct);  // Repetir header
+      // NÃO colocar TOTAL aqui!
+    }
+    y = drawOrderRow(doc, y, orders[i], commissionPct);
+  }
+  
+  // TOTAL apenas no final de TODOS os pedidos
+  y += 10;
+  const totalValue = orders.reduce((sum, o) => sum + o.netValue, 0);
+  const totalCommission = totalValue * (commissionPct / 100);
+  
+  doc
+    .font('Helvetica-Bold')
+    .text('TOTAL', 50, y)
+    .text(formatCurrency(totalValue), 280, y, { align: 'right', width: 80 })
+    .text(formatCurrency(totalCommission), 450, y, { align: 'right', width: 70 });
+}
+```
+
+---
+
+## CORREÇÃO 4: Layout Visual com Linhas (Modelo do PDF Correto)
+```typescript
+// Cores e estilos do PDF de referência:
+
+const STYLES = {
+  headerBg: '#F5F5F5',      // Cinza claro para header da tabela
+  lineColor: '#CCCCCC',      // Cinza para linhas divisórias
+  textColor: '#000000',      // Preto para texto
+  redColor: '#CC0000',       // Vermelho para COMPRAS (negativo)
+  fontSize: {
+    title: 12,
+    header: 9,
+    body: 9,
+    total: 10
+  }
+};
+
+// Desenhar linha horizontal
+function drawLine(doc, y, startX = 40, endX = 555) {
+  doc
+    .strokeColor(STYLES.lineColor)
+    .lineWidth(0.5)
+    .moveTo(startX, y)
+    .lineTo(endX, y)
+    .stroke();
+}
+
+// Header da tabela com fundo cinza
+function drawTableHeader(doc, y, commissionPct) {
+  // Fundo cinza
+  doc
+    .rect(40, y, 515, 18)
+    .fill(STYLES.headerBg);
+  
+  // Linha abaixo do header
+  drawLine(doc, y + 18);
+  
+  // Textos do header
+  doc
+    .fillColor(STYLES.textColor)
+    .fontSize(STYLES.fontSize.header)
+    .font('Helvetica-Bold')
+    .text('Data', 50, y + 5)
+    .text('Status', 115, y + 5)
+    .text('Valor Líquido', 200, y + 5)
+    .text('Paciente', 300, y + 5)
+    .text(`${commissionPct}%`, 480, y + 5);
+  
+  return y + 22;
+}
+
+// Linha de pedido com divisória
+function drawOrderRow(doc, y, order, commissionPct) {
+  const commission = order.netValue * (commissionPct / 100);
+  
+  doc
+    .fillColor(STYLES.textColor)
+    .fontSize(STYLES.fontSize.body)
+    .font('Helvetica')
+    .text(formatDate(order.orderDate), 50, y)
+    .text(order.status, 115, y)
+    .text(formatCurrency(order.netValue), 200, y, { align: 'right', width: 70 })
+    .text(truncateText(order.patient, 35), 300, y)
+    .text(formatCurrency(commission), 480, y, { align: 'right', width: 60 });
+  
+  // Linha divisória sutil
+  drawLine(doc, y + 12);
+  
+  return y + 16;
+}
+
+// Linha de TOTAL (mais grossa, negrito)
+function drawTotalRow(doc, y, label, value, commissionValue) {
+  // Linha acima do total (mais grossa)
+  doc
+    .strokeColor('#999999')
+    .lineWidth(1)
+    .moveTo(40, y - 2)
+    .lineTo(555, y - 2)
+    .stroke();
+  
+  doc
+    .fillColor(STYLES.textColor)
+    .fontSize(STYLES.fontSize.total)
+    .font('Helvetica-Bold')
+    .text(label, 50, y)
+    .text(formatCurrency(value), 200, y, { align: 'right', width: 70 })
+    .text(formatCurrency(commissionValue), 480, y, { align: 'right', width: 60 });
+  
+  return y + 20;
+}
+```
+
+---
+
+## CORREÇÃO 5: Ordenação Cronológica
+```typescript
+// Ordenar pedidos por data CRESCENTE (mais antigo primeiro)
+
+function sortOrdersByDate(orders: Order[]) {
+  return [...orders].sort((a, b) => {
+    return new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime();
+  });
+}
+
+// Aplicar antes de gerar o PDF:
+const efetivadosOrdenados = sortOrdersByDate(efetivados);
+const naoEfetivadosOrdenados = sortOrdersByDate(naoEfetivados);
+```
+
+---
+
+## ESTRUTURA FINAL DO PDF (Visual)
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ BRUNO FRAUCHES SOUZA                              CONVERSÃO 45.45%          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Pedidos efetivados                                                          │
+├──────────┬──────────┬──────────────┬─────────────────────────────┬──────────┤
+│ Data     │ Status   │ Valor Líquido│ Paciente                    │ 10%      │ ← FUNDO CINZA
+├──────────┼──────────┼──────────────┼─────────────────────────────┼──────────┤
+│01/12/2025│ Aprovado │    R$ 74,09  │ MARCIA HELENA GIACOMINI LOBO│   R$ 7,41│
+├──────────┼──────────┼──────────────┼─────────────────────────────┼──────────┤
+│01/12/2025│ Aprovado │   R$ 477,90  │ RODRIGO DA SILVA NUNES      │  R$ 47,79│
+├──────────┼──────────┼──────────────┼─────────────────────────────┼──────────┤
+│ ...      │ ...      │ ...          │ ...                         │ ...      │
+╞══════════╪══════════╪══════════════╪═════════════════════════════╪══════════╡
+│          │   TOTAL  │ R$ 4.838,97  │                             │ R$ 483,90│ ← NEGRITO
+├──────────┴──────────┼──────────────┼─────────────────────────────┼──────────┤
+│ COMPRAS REQ 8778    │              │                             │-R$ 100,00│ ← VERMELHO
+├─────────────────────┼──────────────┼─────────────────────────────┼──────────┤
+│              SALDO  │              │                             │ R$ 383,90│ ← NEGRITO
+└─────────────────────┴──────────────┴─────────────────────────────┴──────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Pedidos não efetivados                                                      │
+├──────────┬────────────┬──────────────┬───────────────────────────┬──────────┤
+│ Data     │ Status     │ Valor Líquido│ Paciente                  │ 10%      │ ← FUNDO CINZA
+├──────────┼────────────┼──────────────┼───────────────────────────┼──────────┤
+│01/12/2025│ Recusado   │   R$ 115,90  │ MARCIA HELENA GIACOMINI...│  R$ 11,59│
+├──────────┼────────────┼──────────────┼───────────────────────────┼──────────┤
+│ ...      │ ...        │ ...          │ ...                       │ ...      │
+╞══════════╪════════════╪══════════════╪═══════════════════════════╪══════════╡
+│          │    TOTAL   │ R$ 7.534,69  │                           │ R$ 753,47│ ← APENAS 1x NO FIM
+└──────────┴────────────┴──────────────┴───────────────────────────┴──────────┘
+```
+
+---
+
+## RESUMO DAS CORREÇÕES
+
+| # | Problema | Correção |
+|---|----------|----------|
+| 1 | Casas decimais (R$ 35,625) | Sempre 2 casas (R$ 35,63) |
+| 2 | COMPRAS não aparece | Adicionar linha vermelha com REQ |
+| 3 | TOTAL duplicado | Mostrar apenas 1x no final |
+| 4 | Sem linhas divisórias | Adicionar linhas e fundo cinza |
+| 5 | Datas desordenadas | Ordenar cronologicamente |
+
+---
+
+## REFERÊNCIA VISUAL
+
+O PDF `Relatorio_BRUNO_FRAUCHES_SOUZA_202512_01__4_.pdf` é o modelo OBRIGATÓRIO para:
+- Espaçamento entre linhas
+- Linhas divisórias horizontais
+- Header com fundo cinza
+- Formatação dos valores
+- Estrutura TOTAL → COMPRAS → SALDO
