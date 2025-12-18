@@ -12,6 +12,7 @@ import Cadastros from "@/pages/Cadastros";
 import PedidosDoMes from "@/pages/PedidosDoMes";
 import Relatorios from "@/pages/Relatorios";
 import Buscar from "@/pages/Buscar";
+import Formulas from "@/pages/Formulas";
 
 function Router() {
   return (
@@ -21,6 +22,7 @@ function Router() {
           <Route path="/" component={Buscar} />
           <Route path="/cadastros" component={Cadastros} />
           <Route path="/pedidos" component={PedidosDoMes} />
+          <Route path="/formulas" component={Formulas} />
           <Route path="/relatorios" component={Relatorios} />
           <Route component={NotFound} />
         </Switch>

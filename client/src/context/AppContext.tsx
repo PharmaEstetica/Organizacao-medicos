@@ -1,16 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Prescriber, GroupedOrder, Report } from '../types';
+import { Prescriber, GroupedOrder, Report, Formula } from '../types';
 
 interface AppContextType {
   prescribers: Prescriber[];
   orders: GroupedOrder[];
   reports: Report[];
+  formulas: Formula[];
+  pharmaceuticalForms: string[];
   addPrescriber: (prescriber: Omit<Prescriber, 'id' | 'created_at' | 'updated_at'>) => void;
   updatePrescriber: (id: number, prescriber: Partial<Prescriber>) => void;
   deletePrescriber: (id: number) => void;
   addOrders: (newOrders: GroupedOrder[]) => void;
   clearOrders: () => void;
   generateReport: (prescriberId: number, month: string, data: any) => void;
+  addFormula: (formula: Omit<Formula, 'id' | 'createdAt'>) => void;
+  updateFormula: (id: number, formula: Partial<Formula>) => void;
+  deleteFormula: (id: number) => void;
+  addPharmaceuticalForm: (form: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -50,6 +56,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [orders, setOrders] = useState<GroupedOrder[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
+  
+  // Formulas State
+  const [formulas, setFormulas] = useState<Formula[]>([
+    {
+      id: 1,
+      name: 'Anti-Aging Basic',
+      prescriberId: 1,
+      content: 'Ácido Hialurônico 1% + Vitamina C 10%',
+      pharmaceuticalForm: 'Creme',
+      createdAt: new Date().toISOString()
+    }
+  ]);
+
+  // Unique Pharmaceutical Forms list
+  const [pharmaceuticalForms, setPharmaceuticalForms] = useState<string[]>([
+    'Creme', 'Gel', 'Cápsula', 'Loção', 'Xarope', 'Sérum'
+  ]);
 
   const addPrescriber = (data: Omit<Prescriber, 'id' | 'created_at' | 'updated_at'>) => {
     const newPrescriber: Prescriber = {
@@ -91,17 +114,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setReports([...reports, newReport]);
   };
 
+  const addFormula = (data: Omit<Formula, 'id' | 'createdAt'>) => {
+    const newFormula: Formula = {
+      ...data,
+      id: Math.max(0, ...formulas.map(f => f.id)) + 1,
+      createdAt: new Date().toISOString(),
+    };
+    setFormulas([...formulas, newFormula]);
+  };
+
+  const updateFormula = (id: number, data: Partial<Formula>) => {
+    setFormulas(formulas.map(f => f.id === id ? { ...f, ...data } : f));
+  };
+
+  const deleteFormula = (id: number) => {
+    setFormulas(formulas.filter(f => f.id !== id));
+  };
+
+  const addPharmaceuticalForm = (form: string) => {
+    if (!pharmaceuticalForms.includes(form)) {
+      setPharmaceuticalForms([...pharmaceuticalForms, form]);
+    }
+  };
+
   return (
     <AppContext.Provider value={{ 
       prescribers, 
       orders, 
       reports, 
+      formulas,
+      pharmaceuticalForms,
       addPrescriber, 
       updatePrescriber, 
       deletePrescriber,
       addOrders,
       clearOrders,
-      generateReport
+      generateReport,
+      addFormula,
+      updateFormula,
+      deleteFormula,
+      addPharmaceuticalForm
     }}>
       {children}
     </AppContext.Provider>

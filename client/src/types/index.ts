@@ -65,3 +65,12 @@ export interface Order {
   payment_status: 'pending' | 'paid';
   created_at: string;
 }
+
+export interface Formula {
+  id: number;
+  name: string;
+  prescriberId: number | null; // null means "Nenhum"
+  content: string;
+  pharmaceuticalForm: string;
+  createdAt: string;
+}
