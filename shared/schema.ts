@@ -1,18 +1,123 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
+import { pgTable, text, varchar, serial, boolean, integer, decimal, timestamp, json } from "drizzle-orm/pg-core";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+export const prescribers = pgTable("prescribers", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  specialty: text("specialty").notNull(),
+  crm: text("crm"),
+  crmRequired: boolean("crm_required").notNull().default(true),
+  commissionPercentage: decimal("commission_percentage", { precision: 5, scale: 2 }).notNull(),
+  bondType: varchar("bond_type", { length: 1 }).notNull(),
+  photoUrl: text("photo_url"),
+  linkedPackagings: json("linked_packagings").$type<number[]>().default([]),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const insertPrescriberSchema = createInsertSchema(prescribers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export type InsertPrescriber = z.infer<typeof insertPrescriberSchema>;
+export type Prescriber = typeof prescribers.$inferSelect;
+
+export const packagings = pgTable("packagings", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  capacity: text("capacity").notNull(),
+  imageUrl: text("image_url"),
+  hasSticker: boolean("has_sticker").notNull().default(false),
+  stickerSupplier: text("sticker_supplier"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPackagingSchema = createInsertSchema(packagings).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPackaging = z.infer<typeof insertPackagingSchema>;
+export type Packaging = typeof packagings.$inferSelect;
+
+export const formulas = pgTable("formulas", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  prescriberId: integer("prescriber_id").references(() => prescribers.id, { onDelete: 'set null' }),
+  packagingId: integer("packaging_id").references(() => packagings.id, { onDelete: 'set null' }),
+  content: text("content").notNull(),
+  pharmaceuticalForm: text("pharmaceutical_form").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertFormulaSchema = createInsertSchema(formulas).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertFormula = z.infer<typeof insertFormulaSchema>;
+export type Formula = typeof formulas.$inferSelect;
+
+export const orders = pgTable("orders", {
+  id: serial("id").primaryKey(),
+  prescriberId: integer("prescriber_id").references(() => prescribers.id, { onDelete: 'cascade' }),
+  orderNumbers: text("order_numbers").notNull(),
+  orderDate: timestamp("order_date").notNull(),
+  status: varchar("status", { length: 20 }).notNull(),
+  netValue: decimal("net_value", { precision: 10, scale: 2 }).notNull(),
+  patient: text("patient"),
+  req: text("req"),
+  discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }),
+  paymentStatus: varchar("payment_status", { length: 20 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertOrderSchema = createInsertSchema(orders).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertOrder = z.infer<typeof insertOrderSchema>;
+export type Order = typeof orders.$inferSelect;
+
+export const reports = pgTable("reports", {
+  id: serial("id").primaryKey(),
+  prescriberId: integer("prescriber_id").references(() => prescribers.id, { onDelete: 'cascade' }).notNull(),
+  referenceMonth: text("reference_month").notNull(),
+  totalOrders: integer("total_orders").notNull(),
+  effectiveOrders: integer("effective_orders").notNull(),
+  conversionRate: decimal("conversion_rate", { precision: 5, scale: 2 }).notNull(),
+  totalEffectiveValue: decimal("total_effective_value", { precision: 10, scale: 2 }).notNull(),
+  commissionValue: decimal("commission_value", { precision: 10, scale: 2 }).notNull(),
+  expenses: decimal("expenses", { precision: 10, scale: 2 }).notNull().default('0'),
+  finalBalance: decimal("final_balance", { precision: 10, scale: 2 }).notNull(),
+  pdfPath: text("pdf_path"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertReportSchema = createInsertSchema(reports).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertReport = z.infer<typeof insertReportSchema>;
+export type Report = typeof reports.$inferSelect;
+
+export const pharmaceuticalForms = pgTable("pharmaceutical_forms", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPharmaceuticalFormSchema = createInsertSchema(pharmaceuticalForms).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPharmaceuticalForm = z.infer<typeof insertPharmaceuticalFormSchema>;
+export type PharmaceuticalForm = typeof pharmaceuticalForms.$inferSelect;
