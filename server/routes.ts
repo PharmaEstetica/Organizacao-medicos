@@ -306,7 +306,9 @@ export async function registerRoutes(
       const allSettings = await storage.getSettings();
       const result: Record<string, string> = {};
       allSettings.forEach(s => {
-        result[s.settingKey] = s.settingValue;
+        if (!s.settingKey.endsWith('_password')) {
+          result[s.settingKey] = s.settingValue;
+        }
       });
       res.json(result);
     } catch (error) {
@@ -318,13 +320,17 @@ export async function registerRoutes(
     try {
       const { settings: newSettings, currentPassword } = req.body;
       
-      const configPassword = await storage.getSetting('config_password');
-      if (configPassword?.settingValue !== currentPassword) {
+      const isValid = await storage.verifyPassword('config', currentPassword);
+      if (!isValid) {
         return res.status(401).json({ error: 'Senha incorreta' });
       }
       
       for (const [key, value] of Object.entries(newSettings)) {
-        await storage.upsertSetting(key, String(value));
+        if (key.endsWith('_password') && value) {
+          await storage.updatePassword(key.replace('_password', ''), String(value));
+        } else if (!key.endsWith('_password')) {
+          await storage.upsertSetting(key, String(value));
+        }
       }
       
       res.json({ success: true });
@@ -342,9 +348,9 @@ export async function registerRoutes(
         return res.json({ valid: true });
       }
       
-      const storedPassword = await storage.getSetting(`${area}_password`);
+      const isValid = await storage.verifyPassword(area, password);
       
-      if (storedPassword?.settingValue === password) {
+      if (isValid) {
         res.json({ valid: true });
       } else {
         res.status(401).json({ valid: false, error: 'Senha incorreta' });

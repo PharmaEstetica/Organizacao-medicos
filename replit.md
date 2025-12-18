@@ -59,6 +59,16 @@ shared/               # Shared code between client and server
 - Generated client-side for prescriber financial reports
 - Includes order summaries, commission calculations, and conversion rates
 
+### Access Control System
+- **Settings Page**: Configurable password protection for different areas
+- **Protected Areas**: 
+  - Relatórios (Reports) - requires password to access
+  - Configurações (Settings) - requires password to access
+  - Excluir (Delete operations) - requires password to delete items
+- **Password Storage**: Passwords are hashed with bcrypt (10 rounds)
+- **Session Management**: Once unlocked, areas remain accessible for the browser session (sessionStorage)
+- **Default Password**: `kaedy1227` for all areas (configurable in Settings)
+
 ## External Dependencies
 
 ### Database

@@ -66,11 +66,11 @@ export default function Configuracoes() {
       const data = await res.json();
       setSettings({
         relatorios_protected: data.relatorios_protected === 'true',
-        relatorios_password: data.relatorios_password || '',
+        relatorios_password: '',
         delete_protected: data.delete_protected === 'true',
-        delete_password: data.delete_password || '',
+        delete_password: '',
         config_protected: data.config_protected === 'true',
-        config_password: data.config_password || ''
+        config_password: ''
       });
     } catch (error) {
       toast({

@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { eq, desc, sql, and, gte, lt } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 import {
   prescribers,
   packagings,
@@ -68,6 +69,8 @@ export interface IStorage {
   getSetting(key: string): Promise<Setting | undefined>;
   upsertSetting(key: string, value: string): Promise<Setting>;
   initializeDefaultSettings(): Promise<void>;
+  verifyPassword(area: string, password: string): Promise<boolean>;
+  updatePassword(area: string, newPassword: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -251,13 +254,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async initializeDefaultSettings(): Promise<void> {
+    const defaultPassword = 'kaedy1227';
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+    
     const defaultSettings = [
       { key: 'relatorios_protected', value: 'true' },
-      { key: 'relatorios_password', value: 'kaedy1227' },
+      { key: 'relatorios_password', value: hashedPassword },
       { key: 'delete_protected', value: 'true' },
-      { key: 'delete_password', value: 'kaedy1227' },
+      { key: 'delete_password', value: hashedPassword },
       { key: 'config_protected', value: 'true' },
-      { key: 'config_password', value: 'kaedy1227' },
+      { key: 'config_password', value: hashedPassword },
     ];
 
     for (const { key, value } of defaultSettings) {
@@ -266,6 +272,17 @@ export class DatabaseStorage implements IStorage {
         await db.insert(settings).values({ settingKey: key, settingValue: value });
       }
     }
+  }
+
+  async verifyPassword(area: string, password: string): Promise<boolean> {
+    const storedHash = await this.getSetting(`${area}_password`);
+    if (!storedHash) return false;
+    return bcrypt.compare(password, storedHash.settingValue);
+  }
+
+  async updatePassword(area: string, newPassword: string): Promise<void> {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.upsertSetting(`${area}_password`, hashedPassword);
   }
 }
 
