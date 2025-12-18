@@ -72,5 +72,14 @@ export interface Formula {
   prescriberId: number | null; // null means "Nenhum"
   content: string;
   pharmaceuticalForm: string;
+  packagingId?: number; // Linked packaging
+  createdAt: string;
+}
+
+export interface Packaging {
+  id: number;
+  name: string; // e.g., "Pote Branco"
+  type: string; // e.g., "Pote", "Bisnaga"
+  capacity: string; // e.g., "30g", "50ml"
   createdAt: string;
 }

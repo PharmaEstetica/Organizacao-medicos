@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Prescriber, GroupedOrder, Report, Formula } from '../types';
+import { Prescriber, GroupedOrder, Report, Formula, Packaging } from '../types';
 
 interface AppContextType {
   prescribers: Prescriber[];
   orders: GroupedOrder[];
   reports: Report[];
   formulas: Formula[];
+  packagings: Packaging[];
   pharmaceuticalForms: string[];
   addPrescriber: (prescriber: Omit<Prescriber, 'id' | 'created_at' | 'updated_at'>) => void;
   updatePrescriber: (id: number, prescriber: Partial<Prescriber>) => void;
@@ -16,6 +17,8 @@ interface AppContextType {
   addFormula: (formula: Omit<Formula, 'id' | 'createdAt'>) => void;
   updateFormula: (id: number, formula: Partial<Formula>) => void;
   deleteFormula: (id: number) => void;
+  addPackaging: (packaging: Omit<Packaging, 'id' | 'createdAt'>) => void;
+  deletePackaging: (id: number) => void;
   addPharmaceuticalForm: (form: string) => void;
 }
 
@@ -65,8 +68,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       prescriberId: 1,
       content: 'Ácido Hialurônico 1% + Vitamina C 10%',
       pharmaceuticalForm: 'Creme',
+      packagingId: 1,
       createdAt: new Date().toISOString()
     }
+  ]);
+
+  const [packagings, setPackagings] = useState<Packaging[]>([
+    { id: 1, name: 'Pote Luxo Branco', type: 'Pote', capacity: '30g', createdAt: new Date().toISOString() },
+    { id: 2, name: 'Bisnaga Pump', type: 'Bisnaga', capacity: '50g', createdAt: new Date().toISOString() },
   ]);
 
   // Unique Pharmaceutical Forms list
@@ -131,6 +140,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setFormulas(formulas.filter(f => f.id !== id));
   };
 
+  const addPackaging = (data: Omit<Packaging, 'id' | 'createdAt'>) => {
+    const newPkg: Packaging = {
+        ...data,
+        id: Math.max(0, ...packagings.map(p => p.id)) + 1,
+        createdAt: new Date().toISOString()
+    };
+    setPackagings([...packagings, newPkg]);
+  };
+
+  const deletePackaging = (id: number) => {
+    setPackagings(packagings.filter(p => p.id !== id));
+  };
+
   const addPharmaceuticalForm = (form: string) => {
     if (!pharmaceuticalForms.includes(form)) {
       setPharmaceuticalForms([...pharmaceuticalForms, form]);
@@ -143,6 +165,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       orders, 
       reports, 
       formulas,
+      packagings,
       pharmaceuticalForms,
       addPrescriber, 
       updatePrescriber, 
@@ -153,6 +176,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addFormula,
       updateFormula,
       deleteFormula,
+      addPackaging,
+      deletePackaging,
       addPharmaceuticalForm
     }}>
       {children}
