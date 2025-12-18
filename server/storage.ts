@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lt } from "drizzle-orm";
 import {
   prescribers,
   packagings,
@@ -49,6 +49,7 @@ export interface IStorage {
 
   getManualOrders(): Promise<ManualOrder[]>;
   getManualOrder(id: number): Promise<ManualOrder | undefined>;
+  getManualOrdersByPrescriberAndMonth(prescriberId: number, month: number, year: number): Promise<ManualOrder[]>;
   createManualOrder(order: InsertManualOrder): Promise<ManualOrder>;
   updateManualOrder(id: number, order: Partial<InsertManualOrder>): Promise<ManualOrder | undefined>;
   deleteManualOrder(id: number): Promise<void>;
@@ -155,6 +156,19 @@ export class DatabaseStorage implements IStorage {
   async getManualOrder(id: number): Promise<ManualOrder | undefined> {
     const result = await db.select().from(manualOrders).where(eq(manualOrders.id, id));
     return result[0];
+  }
+
+  async getManualOrdersByPrescriberAndMonth(prescriberId: number, month: number, year: number): Promise<ManualOrder[]> {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 1);
+    
+    return await db.select().from(manualOrders).where(
+      and(
+        eq(manualOrders.prescriberId, prescriberId),
+        gte(manualOrders.orderDate, startDate),
+        lt(manualOrders.orderDate, endDate)
+      )
+    );
   }
 
   async createManualOrder(order: InsertManualOrder): Promise<ManualOrder> {

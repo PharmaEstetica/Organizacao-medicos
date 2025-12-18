@@ -159,6 +159,8 @@ export const api = {
 
   manualOrders: {
     getAll: () => apiRequest<ManualOrder[]>("/manual-orders"),
+    getByPrescriberAndMonth: (prescriberId: number, month: number, year: number) =>
+      apiRequest<ManualOrder[]>(`/manual-orders/by-prescriber/${prescriberId}/${month}/${year}`),
     create: (data: Partial<ManualOrder>) =>
       apiRequest<ManualOrder>("/manual-orders", {
         method: "POST",

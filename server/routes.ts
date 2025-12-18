@@ -187,6 +187,20 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/manual-orders/by-prescriber/:prescriberId/:month/:year", async (req, res) => {
+    try {
+      const { prescriberId, month, year } = req.params;
+      const orders = await storage.getManualOrdersByPrescriberAndMonth(
+        Number(prescriberId),
+        Number(month),
+        Number(year)
+      );
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch manual orders by prescriber/month" });
+    }
+  });
+
   app.post("/api/manual-orders", async (req, res) => {
     try {
       const body = {
