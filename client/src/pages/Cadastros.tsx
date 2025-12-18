@@ -12,13 +12,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useApp } from "@/context/AppContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePrescribers } from "@/hooks/useApi";
 
 export default function Cadastros() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const { prescribers } = useApp();
+  const { data: prescribers = [] } = usePrescribers();
 
   const handleEdit = (id: number) => {
     setEditingId(id);
