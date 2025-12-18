@@ -144,7 +144,7 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
                   </FormControl>
                   <SelectContent className="rounded-sm">
                     <SelectItem value="P">Parceiro (P)</SelectItem>
-                    <SelectItem value="C">Comissionado (C)</SelectItem>
+                    <SelectItem value="C">Parceiro (C)</SelectItem>
                     <SelectItem value="N">Nenhum (N)</SelectItem>
                   </SelectContent>
                 </Select>

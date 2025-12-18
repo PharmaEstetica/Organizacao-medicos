@@ -53,7 +53,7 @@ export default function Buscar() {
                   <p className="text-sm text-muted-foreground">{prescriber.specialty}</p>
                   <div className="pt-2 flex gap-2">
                     <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-1 bg-secondary rounded-sm text-secondary-foreground">
-                      {prescriber.bond_type === 'P' ? 'Parceiro' : prescriber.bond_type === 'C' ? 'Comissionado' : 'Neutro'}
+                      {prescriber.bond_type === 'N' ? 'Neutro' : 'Parceiro'}
                     </span>
                   </div>
                 </div>

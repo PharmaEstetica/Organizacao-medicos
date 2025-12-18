@@ -32,7 +32,7 @@ export function PrescriberList({ onEdit }: PrescriberListProps) {
   const getBondLabel = (type: string) => {
     switch (type) {
       case 'P': return 'Parceiro';
-      case 'C': return 'Comissionado';
+      case 'C': return 'Parceiro (C)';
       case 'N': return 'Nenhum';
       default: return type;
     }
