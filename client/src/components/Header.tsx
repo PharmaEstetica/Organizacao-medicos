@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, FileText, Search, FlaskConical } from "lucide-react";
+import { LayoutDashboard, Users, FileText, Search, FlaskConical, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Header() {
@@ -11,6 +11,7 @@ export function Header() {
     { href: "/pedidos", label: "Pedidos", icon: LayoutDashboard },
     { href: "/formulas", label: "Fórmulas", icon: FlaskConical },
     { href: "/relatorios", label: "Relatórios", icon: FileText },
+    { href: "/configuracoes", label: "Configurações", icon: Settings },
   ];
 
   return (

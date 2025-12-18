@@ -13,6 +13,7 @@ import PedidosDoMes from "@/pages/PedidosDoMes";
 import Relatorios from "@/pages/Relatorios";
 import Buscar from "@/pages/Buscar";
 import Formulas from "@/pages/Formulas";
+import Configuracoes from "@/pages/Configuracoes";
 
 function Router() {
   return (
@@ -24,6 +25,7 @@ function Router() {
           <Route path="/pedidos" component={PedidosDoMes} />
           <Route path="/formulas" component={Formulas} />
           <Route path="/relatorios" component={Relatorios} />
+          <Route path="/configuracoes" component={Configuracoes} />
           <Route component={NotFound} />
         </Switch>
       </div>
