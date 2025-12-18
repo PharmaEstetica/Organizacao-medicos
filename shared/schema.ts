@@ -66,6 +66,7 @@ export type Formula = typeof formulas.$inferSelect;
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   prescriberId: integer("prescriber_id").references(() => prescribers.id, { onDelete: 'cascade' }),
+  prescriberName: text("prescriber_name"),
   orderNumbers: text("order_numbers").notNull(),
   orderDate: timestamp("order_date").notNull(),
   status: varchar("status", { length: 20 }).notNull(),

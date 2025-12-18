@@ -24,6 +24,7 @@ export interface ParsedOrder {
   status: string;
   netValue: number;
   patient?: string;
+  originalStatus?: string;
 }
 
 export interface GroupedOrder {
@@ -33,7 +34,7 @@ export interface GroupedOrder {
   status: 'Efetivado' | 'Não efetivado';
   netValue: number;
   patient?: string;
-  // New fields for manual entry
+  originalStatus?: string;
   req?: string;
   discountPercentage?: number;
   paymentStatus?: 'Pago' | 'Pendente';

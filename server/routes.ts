@@ -146,10 +146,16 @@ export async function registerRoutes(
 
   app.post("/api/orders", async (req, res) => {
     try {
-      const validated = insertOrderSchema.parse(req.body);
+      // Convert orderDate string to Date if needed
+      const body = {
+        ...req.body,
+        orderDate: req.body.orderDate ? new Date(req.body.orderDate) : undefined,
+      };
+      const validated = insertOrderSchema.parse(body);
       const order = await storage.createOrder(validated);
       res.status(201).json(order);
     } catch (error) {
+      console.error("Order validation error:", error);
       res.status(400).json({ error: "Invalid order data" });
     }
   });

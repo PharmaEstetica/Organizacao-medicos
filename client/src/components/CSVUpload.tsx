@@ -48,29 +48,42 @@ export function CSVUpload() {
       
       // Create orders via API
       let successCount = 0;
-      groupedOrders.forEach(order => {
-        createOrder.mutate({
-          prescriberId: null,
-          orderNumbers: order.orderNumbers.join(','),
-          orderDate: order.orderDate.toISOString(),
-          status: order.status,
-          netValue: order.netValue.toString(),
-          patient: order.patient,
-        }, {
-          onSuccess: () => {
-            successCount++;
-            if (successCount === groupedOrders.length) {
-              setSuccess(`Processado com sucesso! ${groupedOrders.length} pedidos unificados encontrados.`);
-              toast({
-                title: "Upload Concluído",
-                description: `${groupedOrders.length} pedidos foram importados e unificados.`,
-              });
+      let errorCount = 0;
+      
+      const saveOrder = (order: typeof groupedOrders[0]) => {
+        return new Promise<void>((resolve, reject) => {
+          createOrder.mutate({
+            prescriberId: null,
+            orderNumbers: order.orderNumbers.join(','),
+            orderDate: order.orderDate.toISOString(),
+            status: order.originalStatus || order.status,
+            netValue: order.netValue.toString(),
+            patient: order.patient,
+            prescriberName: order.prescriberName,
+          }, {
+            onSuccess: () => {
+              successCount++;
+              resolve();
+            },
+            onError: () => {
+              errorCount++;
+              reject();
             }
-          },
-          onError: () => {
-            setError('Erro ao salvar alguns pedidos.');
-          }
+          });
         });
+      };
+      
+      // Save all orders
+      Promise.allSettled(groupedOrders.map(saveOrder)).then(() => {
+        if (errorCount > 0) {
+          setError(`Erro ao salvar ${errorCount} pedido(s). ${successCount} salvo(s) com sucesso.`);
+        } else {
+          setSuccess(`Processado com sucesso! ${successCount} pedidos unificados encontrados.`);
+          toast({
+            title: "Upload Concluído",
+            description: `${successCount} pedidos foram importados e unificados.`,
+          });
+        }
       });
     };
 

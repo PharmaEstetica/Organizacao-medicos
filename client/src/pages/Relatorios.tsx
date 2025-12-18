@@ -203,13 +203,13 @@ export default function Relatorios() {
           const d = new Date(o.orderDate);
           return d.getMonth() + 1 === month && 
                  d.getFullYear() === year && 
-                 o.prescriberName.toLowerCase() === prescriber.name.toLowerCase();
+                 (o.prescriberName || '').toLowerCase() === prescriber.name.toLowerCase();
         });
 
         if (prescriberOrders.length === 0) continue;
 
-        const effectiveOrders = prescriberOrders.filter(o => o.status === 'Efetivado');
-        const nonEffectiveOrders = prescriberOrders.filter(o => o.status === 'Não efetivado');
+        const effectiveOrders = prescriberOrders.filter(o => o.status === 'Aprovado');
+        const nonEffectiveOrders = prescriberOrders.filter(o => o.status !== 'Aprovado');
         
         const totalEffectiveValue = effectiveOrders.reduce((sum, o) => sum + parseFloat(o.netValue), 0);
         const commissionRate = parseFloat(prescriber.commissionPercentage);
@@ -262,18 +262,18 @@ export default function Relatorios() {
         const d = new Date(o.orderDate);
         return d.getMonth() + 1 === month && 
                d.getFullYear() === year && 
-               o.prescriberName.toLowerCase() === prescriber.name.toLowerCase();
+               (o.prescriberName || '').toLowerCase() === prescriber.name.toLowerCase();
     });
 
-    const effectiveOrders = prescriberOrders.filter(o => o.status === 'Efetivado');
-    const nonEffectiveOrders = prescriberOrders.filter(o => o.status === 'Não efetivado');
+    const effectiveOrders = prescriberOrders.filter(o => o.status === 'Aprovado');
+    const nonEffectiveOrders = prescriberOrders.filter(o => o.status !== 'Aprovado');
 
     toast({
         title: "Download Iniciado",
         description: `Baixando relatório de ${prescriber.name}...`,
     });
     
-    generatePrescriberPDF(prescriber, effectiveOrders, nonEffectiveOrders, report.reference_month, true);
+    generatePrescriberPDF(prescriber, effectiveOrders, nonEffectiveOrders, report.referenceMonth, true);
   };
 
   return (

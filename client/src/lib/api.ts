@@ -38,6 +38,7 @@ export interface Formula {
 export interface Order {
   id: number;
   prescriberId: number | null;
+  prescriberName?: string | null;
   orderNumbers: string;
   orderDate: string;
   status: string;

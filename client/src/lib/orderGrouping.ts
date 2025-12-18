@@ -12,8 +12,11 @@ function isSameDate(date1: Date, date2: Date): boolean {
 export function unificarSequenciais(orders: ParsedOrder[]): GroupedOrder[] {
   if (orders.length === 0) return [];
 
-  // Ordenar por: Data, Paciente, Status
+  // Sort by: Prescriber, Date, Patient, Status
   const sorted = [...orders].sort((a, b) => {
+    const prescriberCompare = a.prescriberName.localeCompare(b.prescriberName);
+    if (prescriberCompare !== 0) return prescriberCompare;
+    
     const dateCompare = a.orderDate.getTime() - b.orderDate.getTime();
     if (dateCompare !== 0) return dateCompare;
     
@@ -31,16 +34,15 @@ export function unificarSequenciais(orders: ParsedOrder[]): GroupedOrder[] {
   for (const order of sorted) {
     const shouldUnify =
       current &&
+      current.prescriberName === order.prescriberName &&
       current.patient === (order.patient || undefined) &&
       current.status === order.status &&
       isSameDate(current.orderDate, order.orderDate);
 
     if (shouldUnify && current) {
-      // Unificar: somar valores e concatenar números
       current.orderNumbers.push(order.orderNumber);
       current.netValue += order.netValue;
     } else {
-      // Novo grupo
       if (current) grouped.push(current);
       current = {
         prescriberName: order.prescriberName,
@@ -49,6 +51,7 @@ export function unificarSequenciais(orders: ParsedOrder[]): GroupedOrder[] {
         status: order.status as 'Efetivado' | 'Não efetivado',
         netValue: order.netValue,
         patient: order.patient,
+        originalStatus: order.originalStatus,
       };
     }
   }

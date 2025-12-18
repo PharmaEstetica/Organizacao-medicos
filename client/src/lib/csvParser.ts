@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { ParsedOrder } from '../types';
 
-const REQUIRED_HEADERS = ['Nome', 'Número', 'Data', 'Status', 'Valor Líquido'];
+const REQUIRED_HEADERS = ['Nome', 'Número', 'Data', 'Status', 'Valor Líquido', 'Paciente'];
 
 const OrderRowSchema = z.object({
   Nome: z.string().min(1),
@@ -29,15 +29,27 @@ function parseCurrency(value: string): number {
 }
 
 function normalizeStatus(status: string): 'Efetivado' | 'Não efetivado' {
-  // Assuming "Aprovado" means "Efetivado" based on context, but flexible
-  return status.toLowerCase() === 'aprovado' || status.toLowerCase() === 'efetivado' 
-    ? 'Efetivado' 
-    : 'Não efetivado';
+  const lower = status.toLowerCase().trim();
+  if (lower === 'aprovado' || lower === 'efetivado') {
+    return 'Efetivado';
+  }
+  return 'Não efetivado';
+}
+
+function getOriginalStatus(status: string): string {
+  const trimmed = status.trim();
+  if (trimmed.toLowerCase() === 'aprovado') return 'Aprovado';
+  if (trimmed.toLowerCase() === 'recusado') return 'Recusado';
+  if (trimmed.toLowerCase() === 'no carrinho') return 'No carrinho';
+  return trimmed;
 }
 
 export function parseCSV(content: string): { data: ParsedOrder[]; errors: string[] } {
   const errors: string[] = [];
-  const lines = content.trim().split('\n');
+  
+  // Handle BOM if present
+  const cleanContent = content.replace(/^\uFEFF/, '');
+  const lines = cleanContent.trim().split('\n');
   
   if (lines.length < 2) {
     return { data: [], errors: ['Arquivo CSV vazio ou sem dados'] };
@@ -45,7 +57,7 @@ export function parseCSV(content: string): { data: ParsedOrder[]; errors: string
 
   const headers = lines[0].split(';').map(h => h.trim());
   
-  // Validar headers obrigatórios
+  // Validate required headers exist
   const missingHeaders = REQUIRED_HEADERS.filter(h => !headers.includes(h));
   if (missingHeaders.length > 0) {
     return { 
@@ -57,8 +69,11 @@ export function parseCSV(content: string): { data: ParsedOrder[]; errors: string
   const data: ParsedOrder[] = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(';').map(v => v.trim());
-    if (values.length < headers.length) continue; // Skip empty/malformed lines
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    const values = line.split(';').map(v => v.trim());
+    if (values.length < headers.length) continue;
 
     const row: Record<string, string> = {};
     
@@ -73,6 +88,8 @@ export function parseCSV(content: string): { data: ParsedOrder[]; errors: string
       continue;
     }
 
+    const originalStatus = getOriginalStatus(row['Status']);
+    
     data.push({
       prescriberName: row['Nome'],
       orderNumber: row['Número'],
@@ -80,6 +97,7 @@ export function parseCSV(content: string): { data: ParsedOrder[]; errors: string
       status: normalizeStatus(row['Status']),
       netValue: parseCurrency(row['Valor Líquido']),
       patient: row['Paciente'] || undefined,
+      originalStatus: originalStatus,
     });
   }
 

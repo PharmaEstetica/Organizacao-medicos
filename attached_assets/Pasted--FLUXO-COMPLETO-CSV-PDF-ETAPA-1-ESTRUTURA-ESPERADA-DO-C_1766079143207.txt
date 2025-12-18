@@ -1,0 +1,184 @@
+🔄 FLUXO COMPLETO: CSV → PDF
+ETAPA 1: ESTRUTURA ESPERADA DO CSV
+O sistema espera um arquivo CSV com:
+
+Separador: ponto e vírgula (;)
+Encoding: UTF-8
+Cabeçalhos obrigatórios (exatos):
+Nome;Número;Data;Status;Valor Líquido;Paciente
+Exemplo de linha de dados:
+
+THIAGO MARQUES;12345;15/06/2024;Aprovado;R$ 1.234,56;João Silva
+ETAPA 2: PARSING DO CSV (csvParser.ts)
+O que faz: Lê o arquivo e transforma cada linha em um objeto JavaScript.
+
+Passo a passo:
+
+Lê o arquivo como texto UTF-8
+
+const text = await file.text();
+Divide em linhas e remove linhas vazias
+
+const lines = text.split("\n").filter(line => line.trim());
+Extrai os cabeçalhos (primeira linha)
+
+const headers = headerLine.split(";").map(h => h.trim());
+// Resultado: ["Nome", "Número", "Data", "Status", "Valor Líquido", "Paciente"]
+Valida se todos os cabeçalhos obrigatórios existem
+
+const missingHeaders = REQUIRED_HEADERS.filter(
+  required => !headers.includes(required)
+);
+// Se faltam cabeçalhos → retorna erro
+Processa cada linha de dados:
+
+a) Converte moeda brasileira para número:
+
+
+// Entrada: "R$ 1.234,56"
+// Remove "R$": "1.234,56"
+// Remove pontos: "1234,56"
+// Troca vírgula por ponto: "1234.56"
+// Resultado: 1234.56
+b) Converte data DD/MM/AAAA para objeto Date:
+
+
+// Entrada: "15/06/2024"
+// Separa: day=15, month=6, year=2024
+// Resultado: new Date(2024, 5, 15) // mês é 0-indexed
+c) Valida com Zod (schema de validação)
+
+Retorna array de objetos ParsedOrder:
+
+
+{
+  prescriberName: "THIAGO MARQUES",
+  orderNumber: "12345",
+  orderDate: Date(2024-06-15),
+  status: "Aprovado",
+  netValue: 1234.56,
+  patient: "João Silva"
+}
+ETAPA 3: AGRUPAMENTO DE PEDIDOS (orderGrouping.ts)
+O que faz: Une linhas sequenciais do mesmo paciente/status/data em uma única linha.
+
+Por que existe: O CSV pode ter múltiplas linhas para o mesmo paciente no mesmo dia. O sistema agrupa para mostrar como uma única entrada no PDF.
+
+Regras de agrupamento:
+
+Ordena por: Data → Paciente → Status
+Se linha atual tem MESMO paciente + MESMO status + MESMA data que a anterior:
+Soma os valores
+Concatena os números de pedido
+Se diferente, inicia novo grupo
+Exemplo:
+
+ANTES (3 linhas):
+- João Silva, 15/06, Aprovado, R$ 100
+- João Silva, 15/06, Aprovado, R$ 200
+- João Silva, 15/06, Aprovado, R$ 50
+
+DEPOIS (1 linha):
+- João Silva, 15/06, Aprovado, R$ 350 (número: "123, 124, 125")
+ETAPA 4: PROCESSAMENTO NO BACKEND (generate-report/index.ts)
+O que faz: Recebe os pedidos, agrupa por prescritor, calcula métricas e salva no banco.
+
+Passo a passo:
+
+Agrupa pedidos por nome do prescritor:
+
+// De: [pedido1, pedido2, pedido3, pedido4]
+// Para: { "THIAGO": [pedido1, pedido2], "MARIA": [pedido3, pedido4] }
+Para cada prescritor, separa pedidos:
+
+Efetivados: status = "Aprovado"
+Não Efetivados: status = "Recusado" ou "No carrinho"
+Calcula métricas:
+
+
+// Taxa de conversão
+conversionRate = (efetivados.length / total.length) * 100
+
+// Total de vendas efetivadas
+totalNetValue = soma de todos os netValue dos efetivados
+
+// Comissão total
+totalCommission = totalNetValue * (commissionPercentage / 100)
+
+// Saldo final (após descontar despesas)
+finalBalance = totalCommission - somaDeTodasDespesas
+Salva no banco de dados:
+Tabela reports: dados do relatório
+Tabela orders: cada pedido individual
+ETAPA 5: GERAÇÃO DO PDF (pdfGenerator.ts)
+O que faz: Cria o documento PDF visual usando jsPDF.
+
+Estrutura do PDF:
+
+┌─────────────────────────────────────────────────────────┐
+│ NOME DO PRESCRITOR                    CONVERSÃO XX.XX%  │  ← Cabeçalho (fonte 14)
+├─────────────────────────────────────────────────────────┤
+│ Pedidos efetivados                                      │  ← Título da seção
+├──────┬────────┬─────────────┬───────────┬───────────────┤
+│ Data │ Status │ Valor Líq.  │ Paciente  │     X%        │  ← Cabeçalho tabela (roxo #E6C8EB)
+├──────┼────────┼─────────────┼───────────┼───────────────┤
+│15/06 │Aprovado│ R$ 1.000,00 │João Silva │  R$ 100,00    │  ← Linhas de pedidos
+│16/06 │Aprovado│ R$ 500,00   │Maria      │  R$ 50,00     │
+├──────┼────────┼─────────────┼───────────┼───────────────┤
+│TOTAL │        │ R$ 1.500,00 │           │  R$ 150,00    │  ← Linha de total (negrito)
+├──────┼────────┼─────────────┼───────────┼───────────────┤
+│COMPRAS│       │ Farmácia    │           │ - R$ 30,00    │  ← Despesas (vermelho)
+├──────┼────────┼─────────────┼───────────┼───────────────┤
+│SALDO │        │             │           │  R$ 120,00    │  ← Saldo final (negrito)
+└──────┴────────┴─────────────┴───────────┴───────────────┘
+
+[Se houver pedidos não efetivados, aparece outra tabela igual abaixo]
+Larguras das colunas (em mm):
+
+Coluna	Largura
+Data	22mm
+Status	25mm
+Valor Líquido	30mm
+Paciente	70mm
+X% (comissão)	28mm
+Estilos:
+
+Fonte do corpo: 7pt
+Fonte do cabeçalho da tabela: 8pt
+Cabeçalho tabela: fundo roxo claro #E6C8EB
+Linha COMPRAS: texto vermelho rgb(255, 0, 0)
+Linhas TOTAL/SALDO: negrito
+ETAPA 6: UPLOAD E SALVAMENTO
+Gera o PDF como Blob:
+
+const pdfBlob = generatePDF({...params});
+Cria nome do arquivo:
+
+// Formato: Relatorio_NOME_PRESCRITOR_AAAAMM_DD.pdf
+// Exemplo: Relatorio_THIAGO_MARQUES_202406_15.pdf
+Faz upload para o storage do Supabase:
+
+await supabase.storage.from("reports").upload(filePath, pdfBlob);
+Atualiza o registro no banco com a URL do PDF
+📊 RESUMO DO FLUXO COMPLETO
+CSV (arquivo texto)
+       ↓
+   parseCSV()
+       ↓ converte para objetos
+   [ParsedOrder[]]
+       ↓
+   unificarSequenciais()
+       ↓ agrupa pedidos iguais
+   [ParsedOrder[] consolidado]
+       ↓
+   Edge Function (generate-report)
+       ↓ agrupa por prescritor, calcula métricas, salva no banco
+   [ReportData por prescritor]
+       ↓
+   generatePDF()
+       ↓ cria documento visual
+   [PDF Blob]
+       ↓
+   supabase.storage.upload()
+       ↓
+   [PDF salvo no cloud]
