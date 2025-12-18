@@ -37,7 +37,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { type Prescriber as ApiPrescriber } from "@/lib/api";
 import { usePackagings, useCreatePrescriber, useUpdatePrescriber } from "@/hooks/useApi";
-import { User, Stethoscope, FileBadge, Percent, Package, Check, ChevronsUpDown } from "lucide-react";
+import { User, Stethoscope, FileBadge, Percent, Package, Check, ChevronsUpDown, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
@@ -51,6 +51,7 @@ const formSchema = z.object({
     required_error: "Selecione o tipo de vínculo",
   }),
   linkedPackagings: z.array(z.number()).default([]),
+  photoUrl: z.string().optional(),
 });
 
 interface PrescriberFormProps {
@@ -61,6 +62,7 @@ interface PrescriberFormProps {
 export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) {
   const { toast } = useToast();
   const [openPackagings, setOpenPackagings] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photoUrl || null);
   
   const { data: packagings = [] } = usePackagings();
   const createPrescriber = useCreatePrescriber();
@@ -74,6 +76,7 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
     commissionPercentage: parseFloat(initialData.commissionPercentage),
     bondType: initialData.bondType as "P" | "C" | "N",
     linkedPackagings: initialData.linkedPackagings || [],
+    photoUrl: initialData.photoUrl || "",
   } : {
     name: "",
     specialty: "",
@@ -82,6 +85,34 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
     commissionPercentage: 10,
     bondType: "P" as const,
     linkedPackagings: [],
+    photoUrl: "",
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Erro",
+        description: "Por favor, selecione uma imagem válida.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64String = event.target?.result as string;
+      setPhotoPreview(base64String);
+      form.setValue("photoUrl", base64String);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removePhoto = () => {
+    setPhotoPreview(null);
+    form.setValue("photoUrl", "");
   };
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -155,6 +186,52 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
             </FormItem>
           )}
         />
+
+        <div className="space-y-2">
+          <FormLabel className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Foto do Prescritor</FormLabel>
+          <div className="flex items-center gap-4">
+            {photoPreview ? (
+              <div className="relative">
+                <img 
+                  src={photoPreview} 
+                  alt="Preview" 
+                  className="h-24 w-24 rounded-sm object-cover border border-border"
+                  data-testid="photo-preview"
+                />
+                <button
+                  type="button"
+                  onClick={removePhoto}
+                  className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
+                  data-testid="button-remove-photo"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="h-24 w-24 rounded-sm bg-muted flex items-center justify-center border border-dashed border-border">
+                <User className="h-8 w-8 text-muted-foreground" />
+              </div>
+            )}
+            <div className="flex-1">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoChange}
+                className="hidden"
+                id="photo-input"
+                data-testid="input-photo"
+              />
+              <label
+                htmlFor="photo-input"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-sm border border-border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors"
+              >
+                <Upload className="h-4 w-4" />
+                <span className="text-sm font-medium">Selecionar Foto</span>
+              </label>
+              <p className="text-xs text-muted-foreground mt-2">JPG, PNG ou WebP. Máx 5MB</p>
+            </div>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
