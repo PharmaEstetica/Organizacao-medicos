@@ -13,7 +13,6 @@ export const prescribers = pgTable("prescribers", {
   bondType: varchar("bond_type", { length: 1 }).notNull(),
   photoUrl: text("photo_url"),
   linkedPackagings: json("linked_packagings").$type<number[]>().default([]),
-  attachments: json("attachments").$type<Array<{name: string; type: string; data: string}>>().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
