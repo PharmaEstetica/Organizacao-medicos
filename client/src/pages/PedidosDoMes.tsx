@@ -10,11 +10,11 @@ export default function PedidosDoMes() {
           Pedidos de Parceiros
         </h1>
         <p className="text-muted-foreground mt-2">
-          Gerencie os pedidos feitos manualmente ou via importação.
+          Gerencie os pedidos feitos manualmente
         </p>
       </div>
 
-      <OrdersManager hideImport={true} />
+      <OrdersManager />
     </div>
   );
 }

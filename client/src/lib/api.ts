@@ -35,17 +35,25 @@ export interface Formula {
   createdAt: string;
 }
 
-export interface Order {
+export interface CsvOrder {
   id: number;
-  prescriberId: number | null;
-  prescriberName?: string | null;
+  prescriberName: string;
   orderNumbers: string;
   orderDate: string;
   status: string;
   netValue: string;
   patient?: string | null;
+  createdAt: string;
+}
+
+export interface ManualOrder {
+  id: number;
+  prescriberId: number;
+  orderNumbers: string;
+  orderDate: string;
+  status: string;
+  netValue: string;
   req?: string | null;
-  discountPercentage?: string | null;
   paymentStatus?: string | null;
   createdAt: string;
 }
@@ -136,15 +144,33 @@ export const api = {
       apiRequest<void>(`/formulas/${id}`, { method: "DELETE" }),
   },
 
-  orders: {
-    getAll: () => apiRequest<Order[]>("/orders"),
-    create: (data: Partial<Order>) =>
-      apiRequest<Order>("/orders", {
+  csvOrders: {
+    getAll: () => apiRequest<CsvOrder[]>("/csv-orders"),
+    create: (data: Partial<CsvOrder>) =>
+      apiRequest<CsvOrder>("/csv-orders", {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    deleteAll: () =>
+      apiRequest<void>("/csv-orders", { method: "DELETE" }),
     delete: (id: number) =>
-      apiRequest<void>(`/orders/${id}`, { method: "DELETE" }),
+      apiRequest<void>(`/csv-orders/${id}`, { method: "DELETE" }),
+  },
+
+  manualOrders: {
+    getAll: () => apiRequest<ManualOrder[]>("/manual-orders"),
+    create: (data: Partial<ManualOrder>) =>
+      apiRequest<ManualOrder>("/manual-orders", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: number, data: Partial<ManualOrder>) =>
+      apiRequest<ManualOrder>(`/manual-orders/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: number) =>
+      apiRequest<void>(`/manual-orders/${id}`, { method: "DELETE" }),
   },
 
   reports: {

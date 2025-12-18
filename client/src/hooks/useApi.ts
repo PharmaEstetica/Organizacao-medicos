@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type Prescriber, type Packaging, type Formula, type Order, type Report } from "@/lib/api";
+import { api, type Prescriber, type Packaging, type Formula, type CsvOrder, type ManualOrder, type Report } from "@/lib/api";
 
 export function usePrescribers() {
   return useQuery({
@@ -104,29 +104,77 @@ export function useDeleteFormula() {
   });
 }
 
-export function useOrders() {
+export function useCsvOrders() {
   return useQuery({
-    queryKey: ["orders"],
-    queryFn: api.orders.getAll,
+    queryKey: ["csv-orders"],
+    queryFn: api.csvOrders.getAll,
   });
 }
 
-export function useCreateOrder() {
+export function useCreateCsvOrder() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: api.orders.create,
+    mutationFn: api.csvOrders.create,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["csv-orders"] });
     },
   });
 }
 
-export function useDeleteOrder() {
+export function useDeleteAllCsvOrders() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: api.orders.delete,
+    mutationFn: api.csvOrders.deleteAll,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["csv-orders"] });
+    },
+  });
+}
+
+export function useDeleteCsvOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.csvOrders.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["csv-orders"] });
+    },
+  });
+}
+
+export function useManualOrders() {
+  return useQuery({
+    queryKey: ["manual-orders"],
+    queryFn: api.manualOrders.getAll,
+  });
+}
+
+export function useCreateManualOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.manualOrders.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["manual-orders"] });
+    },
+  });
+}
+
+export function useUpdateManualOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<ManualOrder> }) =>
+      api.manualOrders.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["manual-orders"] });
+    },
+  });
+}
+
+export function useDeleteManualOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.manualOrders.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["manual-orders"] });
     },
   });
 }

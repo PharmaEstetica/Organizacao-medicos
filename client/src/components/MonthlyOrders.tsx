@@ -8,18 +8,17 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useOrders } from "@/hooks/useApi";
-import type { Order } from "@/lib/api";
+import { useCsvOrders } from "@/hooks/useApi";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { TrendingUp, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 
 interface MonthlyOrdersProps {
   filterMonth?: string;
 }
 
 export function MonthlyOrders({ filterMonth = 'all' }: MonthlyOrdersProps) {
-  const { data: orders = [] } = useOrders();
+  const { data: orders = [] } = useCsvOrders();
 
   const filteredOrders = orders.filter(order => {
     if (filterMonth === 'all') return true;
@@ -41,6 +40,15 @@ export function MonthlyOrders({ filterMonth = 'all' }: MonthlyOrdersProps) {
     return acc + netValue;
   }, 0);
 
+  const getStatusStyle = (status: string) => {
+    if (status === 'Aprovado') {
+      return "border-emerald-500/30 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20";
+    } else if (status === 'Recusado') {
+      return "border-red-300 text-red-600 bg-red-50 dark:bg-red-900/20";
+    }
+    return "border-slate-300 text-slate-500 bg-slate-50 dark:bg-slate-900";
+  };
+
   return (
     <Card className="border border-border rounded-sm bg-card shadow-sm">
       <CardHeader className="border-b border-border/40 pb-4 bg-muted/10">
@@ -48,7 +56,7 @@ export function MonthlyOrders({ filterMonth = 'all' }: MonthlyOrdersProps) {
           <div>
             <CardTitle className="text-lg font-bold flex items-center gap-2">
               <FileText className="h-4 w-4 text-primary" />
-              Tabela de Pedidos
+              Dados Importados do CSV
             </CardTitle>
           </div>
           <div className="text-right flex items-center gap-3 bg-background border border-border px-3 py-1.5 rounded-sm">
@@ -65,9 +73,9 @@ export function MonthlyOrders({ filterMonth = 'all' }: MonthlyOrdersProps) {
             <TableRow className="hover:bg-transparent border-b border-border/60">
               <TableHead className="h-10 font-bold text-xs uppercase tracking-wider text-muted-foreground">Data</TableHead>
               <TableHead className="h-10 font-bold text-xs uppercase tracking-wider text-muted-foreground">Parceiro</TableHead>
-              <TableHead className="h-10 font-bold text-xs uppercase tracking-wider text-muted-foreground">REQ / Pedidos</TableHead>
+              <TableHead className="h-10 font-bold text-xs uppercase tracking-wider text-muted-foreground">Pedidos</TableHead>
               <TableHead className="h-10 font-bold text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
-              <TableHead className="h-10 font-bold text-xs uppercase tracking-wider text-muted-foreground">Pagamento</TableHead>
+              <TableHead className="h-10 font-bold text-xs uppercase tracking-wider text-muted-foreground">Paciente</TableHead>
               <TableHead className="h-10 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">Valor Líquido</TableHead>
             </TableRow>
           </TableHeader>
@@ -75,41 +83,29 @@ export function MonthlyOrders({ filterMonth = 'all' }: MonthlyOrdersProps) {
             {filteredOrders.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                  Nenhum pedido encontrado.
+                  Nenhum dado importado. Faça upload de um CSV para começar.
                 </TableCell>
               </TableRow>
             ) : (
               filteredOrders.map((order, index) => (
-                <TableRow key={`${order.prescriberName}-${index}`} className="hover:bg-muted/30 transition-colors border-b border-border/40">
+                <TableRow key={`${order.prescriberName}-${index}`} className="hover:bg-muted/30 transition-colors border-b border-border/40" data-testid={`row-csv-order-${order.id}`}>
                   <TableCell className="text-muted-foreground py-3 text-sm">
                     {format(new Date(order.orderDate), "dd/MM/yyyy", { locale: ptBR })}
                   </TableCell>
                   <TableCell className="font-semibold text-foreground text-sm">{order.prescriberName}</TableCell>
                   <TableCell className="text-xs text-muted-foreground font-mono">
-                    {order.req ? <span className="text-primary font-bold">#{order.req}</span> : order.orderNumbers}
+                    {order.orderNumbers}
                   </TableCell>
                   <TableCell>
                     <Badge 
                       variant="outline"
-                      className={`rounded-sm border font-medium px-2 py-0.5 text-[10px] uppercase tracking-wide ${
-                        order.status === 'Efetivado' 
-                        ? "border-emerald-500/30 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20" 
-                        : "border-slate-300 text-slate-500 bg-slate-50 dark:bg-slate-900"
-                      }`}
+                      className={`rounded-sm border font-medium px-2 py-0.5 text-[10px] uppercase tracking-wide ${getStatusStyle(order.status)}`}
                     >
                       {order.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    {order.paymentStatus && (
-                      <span className={`text-xs font-bold px-2 py-1 rounded-sm ${
-                        order.paymentStatus === 'Pago' 
-                        ? 'text-green-600 bg-green-100/50' 
-                        : 'text-amber-600 bg-amber-100/50'
-                      }`}>
-                        {order.paymentStatus}
-                      </span>
-                    )}
+                  <TableCell className="text-sm text-muted-foreground">
+                    {order.patient || '-'}
                   </TableCell>
                   <TableCell className="text-right font-bold text-foreground text-sm font-mono">
                     {formatCurrency(order.netValue)}

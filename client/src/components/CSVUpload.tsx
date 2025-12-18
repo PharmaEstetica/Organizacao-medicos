@@ -1,19 +1,20 @@
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, AlertCircle, CheckCircle2, Download } from 'lucide-react';
+import { Upload, AlertCircle, CheckCircle2, Download, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { parseCSV } from '@/lib/csvParser';
 import { unificarSequenciais } from '@/lib/orderGrouping';
-import { useCreateOrder } from '@/hooks/useApi';
+import { useCreateCsvOrder, useDeleteAllCsvOrders } from '@/hooks/useApi';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 export function CSVUpload() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const createOrder = useCreateOrder();
+  const createCsvOrder = useCreateCsvOrder();
+  const deleteAllCsvOrders = useDeleteAllCsvOrders();
   const { toast } = useToast();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -29,7 +30,7 @@ export function CSVUpload() {
     }
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const content = e.target?.result as string;
       const { data, errors } = parseCSV(content);
 
@@ -43,6 +44,13 @@ export function CSVUpload() {
         return;
       }
 
+      // Clear previous CSV orders before importing new ones
+      try {
+        await deleteAllCsvOrders.mutateAsync();
+      } catch (err) {
+        // Continue even if delete fails (table might be empty)
+      }
+
       // Process and Group Orders
       const groupedOrders = unificarSequenciais(data);
       
@@ -52,14 +60,13 @@ export function CSVUpload() {
       
       const saveOrder = (order: typeof groupedOrders[0]) => {
         return new Promise<void>((resolve, reject) => {
-          createOrder.mutate({
-            prescriberId: null,
+          createCsvOrder.mutate({
+            prescriberName: order.prescriberName,
             orderNumbers: order.orderNumbers.join(','),
             orderDate: order.orderDate.toISOString(),
             status: order.originalStatus || order.status,
             netValue: order.netValue.toString(),
             patient: order.patient,
-            prescriberName: order.prescriberName,
           }, {
             onSuccess: () => {
               successCount++;
@@ -92,7 +99,7 @@ export function CSVUpload() {
     };
 
     reader.readAsText(file);
-  }, [createOrder, toast]);
+  }, [createCsvOrder, deleteAllCsvOrders, toast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop,
@@ -104,7 +111,7 @@ export function CSVUpload() {
 
   const downloadTemplate = () => {
     const headers = ['Nome', 'Número', 'Data', 'Status', 'Valor Líquido', 'Paciente'];
-    const example = ['Dr. Silva', '12345', '15/05/2023', 'Efetivado', 'R$ 150,00', 'João Doe'];
+    const example = ['Dr. Silva', '12345', '15/05/2023', 'Aprovado', 'R$ 150,00', 'João Doe'];
     const csvContent = "data:text/csv;charset=utf-8," 
       + headers.join(";") + "\n" 
       + example.join(";");
@@ -118,14 +125,34 @@ export function CSVUpload() {
     document.body.removeChild(link);
   };
 
+  const handleClearData = async () => {
+    try {
+      await deleteAllCsvOrders.mutateAsync();
+      setSuccess(null);
+      setError(null);
+      toast({
+        title: "Dados Limpos",
+        description: "Todos os dados importados foram removidos.",
+      });
+    } catch (err) {
+      setError("Erro ao limpar os dados.");
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-lg font-medium">Importar Pedidos</CardTitle>
-        <Button variant="outline" size="sm" onClick={downloadTemplate}>
-          <Download className="mr-2 h-4 w-4" />
-          Baixar Modelo
-        </Button>
+        <CardTitle className="text-lg font-medium">Importar Pedidos via CSV</CardTitle>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleClearData} data-testid="button-clear-csv">
+            <Trash2 className="mr-2 h-4 w-4" />
+            Limpar Dados
+          </Button>
+          <Button variant="outline" size="sm" onClick={downloadTemplate} data-testid="button-download-template">
+            <Download className="mr-2 h-4 w-4" />
+            Baixar Modelo
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div
@@ -136,6 +163,7 @@ export function CSVUpload() {
             error ? "border-destructive/50 bg-destructive/5" : "",
             success ? "border-green-500/50 bg-green-50/50 dark:bg-green-900/10" : ""
           )}
+          data-testid="csv-dropzone"
         >
           <input {...getInputProps()} />
           <div className="flex flex-col items-center justify-center gap-4">

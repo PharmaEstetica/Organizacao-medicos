@@ -3,7 +3,7 @@ import { ReportsList } from "@/components/ReportsList";
 import { Button } from "@/components/ui/button";
 import { FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { usePrescribers, useOrders, useReports, useCreateReport } from "@/hooks/useApi";
+import { usePrescribers, useCsvOrders, useReports, useCreateReport } from "@/hooks/useApi";
 import {
   Select,
   SelectContent,
@@ -15,23 +15,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { OrdersManager } from "@/components/OrdersManager";
+import { CSVUpload } from "@/components/CSVUpload";
+import { MonthlyOrders } from "@/components/MonthlyOrders";
 
 export default function Relatorios() {
   const { data: prescribers = [] } = usePrescribers();
-  const { data: orders = [] } = useOrders();
+  const { data: csvOrders = [] } = useCsvOrders();
   const { data: reports = [] } = useReports();
   const createReport = useCreateReport();
   const { toast } = useToast();
   
-  // Reports State
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Get available months from orders
-  const availableMonths = Array.from(new Set(orders.map(o => {
+  const availableMonths = Array.from(new Set(csvOrders.map(o => {
     const date = new Date(o.orderDate);
-    return `${date.getMonth() + 1}/${date.getFullYear()}`; // "12/2023"
+    return `${date.getMonth() + 1}/${date.getFullYear()}`;
   }))).sort();
 
   const generatePrescriberPDF = (prescriber: any, effectiveOrders: any[], nonEffectiveOrders: any[], monthYear: string, download = false) => {
@@ -44,7 +43,6 @@ export default function Relatorios() {
     
     const conversionRate = (effectiveOrders.length / (effectiveOrders.length + nonEffectiveOrders.length)) * 100 || 0;
 
-    // --- Header ---
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.text(prescriber.name.toUpperCase(), 14, 20);
@@ -53,7 +51,6 @@ export default function Relatorios() {
     doc.setFontSize(10);
     doc.text(`CONVERSÃO ${conversionRate.toFixed(2)}%`, 195, 20, { align: "right" });
 
-    // --- Pedidos Efetivados ---
     let currentY = 35;
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
@@ -67,13 +64,12 @@ export default function Relatorios() {
 
     const effectiveRows = effectiveOrders.map(o => [
       new Date(o.orderDate).toLocaleDateString('pt-BR'),
-      "Aprovado", // Hardcoded per requirement/image (mapped from 'Efetivado')
+      "Aprovado",
       formatCurrency(parseFloat(o.netValue)),
-      o.patient || o.prescriberName, // Fallback if patient missing
+      o.patient || o.prescriberName,
       formatCurrency(parseFloat(o.netValue) * (commissionRate / 100))
     ]);
 
-    // Footer Row for Effective
     const effectiveFooter = [
       ['TOTAL', '', formatCurrency(totalEffectiveValue), '', formatCurrency(totalCommission)],
       ['SALDO', '', '', '', formatCurrency(totalCommission)]
@@ -84,9 +80,9 @@ export default function Relatorios() {
       head: tableHeaders,
       body: effectiveRows,
       foot: effectiveFooter,
-      theme: 'plain', // Cleaner look, we will add manual styling
+      theme: 'plain',
       headStyles: {
-        fillColor: [230, 208, 222], // Light purple/lilac #E6D0DE
+        fillColor: [230, 208, 222],
         textColor: [0, 0, 0],
         fontStyle: 'bold',
         fontSize: 10,
@@ -108,21 +104,14 @@ export default function Relatorios() {
         0: { cellWidth: 25 },
         1: { cellWidth: 25 },
         2: { cellWidth: 35, halign: 'right' },
-        3: { cellWidth: 'auto' }, // Patient takes remaining space
+        3: { cellWidth: 'auto' },
         4: { cellWidth: 30, halign: 'right' },
       },
-      didParseCell: function (data) {
-        // Style the SALDO row specifically if needed, but footStyles handles bold
-        if (data.section === 'foot' && data.row.index === 1) {
-             // specific styling for SALDO row if needed
-        }
-      }
     });
 
     // @ts-ignore
     currentY = doc.lastAutoTable.finalY + 20;
 
-    // --- Pedidos Não Efetivados ---
     if (nonEffectiveOrders.length > 0) {
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
@@ -131,7 +120,7 @@ export default function Relatorios() {
 
         const nonEffectiveRows = nonEffectiveOrders.map(o => [
             new Date(o.orderDate).toLocaleDateString('pt-BR'),
-            o.status === 'Não efetivado' ? 'Recusado' : o.status, // Map status
+            o.status === 'Não efetivado' ? 'Recusado' : o.status,
             formatCurrency(parseFloat(o.netValue)),
             o.patient || o.prescriberName,
             formatCurrency(parseFloat(o.netValue) * (commissionRate / 100))
@@ -199,7 +188,7 @@ export default function Relatorios() {
       const [month, year] = selectedMonth.split('/').map(Number);
       
       for (const prescriber of prescribers) {
-        const prescriberOrders = orders.filter(o => {
+        const prescriberOrders = csvOrders.filter(o => {
           const d = new Date(o.orderDate);
           return d.getMonth() + 1 === month && 
                  d.getFullYear() === year && 
@@ -218,7 +207,6 @@ export default function Relatorios() {
         const finalBalance = commissionValue - expenses;
         const conversionRate = (effectiveOrders.length / prescriberOrders.length) * 100;
 
-        // Create report record via API
         createReport.mutate({
           prescriberId: prescriber.id,
           referenceMonth: selectedMonth,
@@ -256,9 +244,8 @@ export default function Relatorios() {
     const prescriber = prescribers.find(p => p.id === report.prescriberId);
     if (!prescriber) return;
 
-    // Re-calculate orders for this specific report to regenerate the PDF
     const [month, year] = report.referenceMonth.split('/').map(Number);
-    const prescriberOrders = orders.filter(o => {
+    const prescriberOrders = csvOrders.filter(o => {
         const d = new Date(o.orderDate);
         return d.getMonth() + 1 === month && 
                d.getFullYear() === year && 
@@ -281,24 +268,25 @@ export default function Relatorios() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <FileText className="h-8 w-8 text-primary" />
-            Gestão Financeira
+            Relatórios Financeiros
         </h1>
         <p className="text-muted-foreground mt-2">
-          Gerencie pedidos de parceiros e emita relatórios financeiros detalhados.
+          Importe dados via CSV e gere relatórios financeiros por parceiro.
         </p>
       </div>
 
-      <Tabs defaultValue="pedidos" className="w-full">
+      <Tabs defaultValue="importar" className="w-full">
         <TabsList className="grid w-full grid-cols-2 max-w-[400px] mb-8">
-          <TabsTrigger value="pedidos">Pedidos de Parceiros</TabsTrigger>
-          <TabsTrigger value="relatorios">Relatórios Financeiros</TabsTrigger>
+          <TabsTrigger value="importar" data-testid="tab-importar">Importar CSV</TabsTrigger>
+          <TabsTrigger value="gerar" data-testid="tab-gerar">Gerar Relatórios</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="pedidos">
-          <OrdersManager />
+        <TabsContent value="importar" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <CSVUpload />
+          <MonthlyOrders />
         </TabsContent>
 
-        <TabsContent value="relatorios" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <TabsContent value="gerar" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <Card className="border-border">
             <CardHeader>
               <CardTitle>Gerar Relatórios Mensais</CardTitle>
@@ -309,12 +297,12 @@ export default function Relatorios() {
             <CardContent className="flex items-end gap-4">
               <div className="w-[200px]">
                 <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger>
+                  <SelectTrigger data-testid="select-month">
                     <SelectValue placeholder="Selecione o Mês" />
                   </SelectTrigger>
                   <SelectContent>
                     {availableMonths.length === 0 ? (
-                      <SelectItem value="empty" disabled>Sem dados</SelectItem>
+                      <SelectItem value="empty" disabled>Sem dados importados</SelectItem>
                     ) : (
                       availableMonths.map(month => (
                         <SelectItem key={month} value={month}>{month}</SelectItem>
@@ -323,7 +311,7 @@ export default function Relatorios() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleGenerateAll} disabled={isGenerating || !selectedMonth}>
+              <Button onClick={handleGenerateAll} disabled={isGenerating || !selectedMonth} data-testid="button-generate-reports">
                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
                 Processar Relatórios
               </Button>

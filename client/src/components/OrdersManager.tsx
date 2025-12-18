@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Trash2, PlusCircle, ShoppingBag } from "lucide-react";
-import { useOrders, usePrescribers, useCreateOrder } from "@/hooks/useApi";
-import type { Order } from "@/lib/api";
+import { PlusCircle, ShoppingBag } from "lucide-react";
+import { useManualOrders, usePrescribers, useCreateManualOrder } from "@/hooks/useApi";
 import {
   Dialog,
   DialogContent,
@@ -32,26 +31,21 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
-import { CSVUpload } from "@/components/CSVUpload";
-import { MonthlyOrders } from "@/components/MonthlyOrders";
+import { ManualOrdersTable } from "@/components/ManualOrdersTable";
 
 const orderFormSchema = z.object({
-  prescriberName: z.string().min(1, "Selecione um parceiro"),
+  prescriberId: z.coerce.number().min(1, "Selecione um parceiro"),
   orderDate: z.string().min(1, "Data é obrigatória"),
-  req: z.string().min(1, "REQ é obrigatório"),
-  discountPercentage: z.coerce.number().min(0).max(100),
+  orderNumbers: z.string().min(1, "REQ/Pedidos é obrigatório"),
+  status: z.enum(["Aprovado", "Recusado", "No carrinho"]),
   netValue: z.coerce.number().min(0),
-  paymentStatus: z.enum(["Pago", "Pendente"]),
+  paymentStatus: z.enum(["paid", "pending"]),
 });
 
-interface OrdersManagerProps {
-  hideImport?: boolean;
-}
-
-export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
-  const { data: orders = [] } = useOrders();
+export function OrdersManager() {
+  const { data: orders = [] } = useManualOrders();
   const { data: prescribers = [] } = usePrescribers();
-  const createOrder = useCreateOrder();
+  const createOrder = useCreateManualOrder();
   const { toast } = useToast();
   
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
@@ -65,24 +59,21 @@ export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
   const orderForm = useForm<z.infer<typeof orderFormSchema>>({
     resolver: zodResolver(orderFormSchema),
     defaultValues: {
-      req: "",
-      discountPercentage: 0,
+      orderNumbers: "",
+      status: "Aprovado",
       netValue: 0,
-      paymentStatus: "Pendente",
+      paymentStatus: "pending",
     },
   });
 
   const onOrderSubmit = (values: z.infer<typeof orderFormSchema>) => {
-    const prescriber = prescribers.find(p => p.name === values.prescriberName);
-    
     createOrder.mutate({
-      prescriberId: prescriber?.id || null,
-      orderNumbers: values.req,
+      prescriberId: values.prescriberId,
+      orderNumbers: values.orderNumbers,
       orderDate: values.orderDate,
-      status: 'Efetivado',
+      status: values.status,
       netValue: values.netValue.toString(),
-      req: values.req,
-      discountPercentage: values.discountPercentage.toString(),
+      req: values.orderNumbers,
       paymentStatus: values.paymentStatus,
     }, {
       onSuccess: () => {
@@ -102,8 +93,11 @@ export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2">
             <ShoppingBag className="h-6 w-6 text-primary" />
-            Pedidos
+            Pedidos Manuais
           </h2>
+          <p className="text-muted-foreground text-sm mt-1">
+            Gerencie os pedidos criados manualmente
+          </p>
         </div>
         <div className="flex gap-4">
           <Select value={ordersFilterMonth} onValueChange={setOrdersFilterMonth}>
@@ -120,7 +114,7 @@ export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
 
           <Dialog open={isNewOrderOpen} onOpenChange={setIsNewOrderOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button data-testid="button-new-order">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Novo Pedido
               </Button>
@@ -136,19 +130,19 @@ export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
                 <form onSubmit={orderForm.handleSubmit(onOrderSubmit)} className="space-y-4 pt-4">
                   <FormField
                     control={orderForm.control}
-                    name="prescriberName"
+                    name="prescriberId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nome do Parceiro</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormLabel>Parceiro</FormLabel>
+                        <Select onValueChange={(v) => field.onChange(Number(v))} defaultValue={field.value?.toString()}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger data-testid="select-prescriber">
                               <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             {prescribers.map(p => (
-                              <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                              <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -163,9 +157,9 @@ export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
                       name="orderDate"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Data da Compra</FormLabel>
+                          <FormLabel>Data</FormLabel>
                           <FormControl>
-                            <Input type="date" {...field} />
+                            <Input type="date" {...field} data-testid="input-order-date" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -173,12 +167,12 @@ export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
                     />
                     <FormField
                       control={orderForm.control}
-                      name="req"
+                      name="orderNumbers"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>REQ</FormLabel>
+                          <FormLabel>REQ / Pedidos</FormLabel>
                           <FormControl>
-                            <Input placeholder="12345" {...field} />
+                            <Input placeholder="12345" {...field} data-testid="input-order-numbers" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -189,13 +183,22 @@ export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={orderForm.control}
-                      name="discountPercentage"
+                      name="status"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Desconto (%)</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.1" {...field} />
-                          </FormControl>
+                          <FormLabel>Status</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-status">
+                                <SelectValue placeholder="Selecione..." />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Aprovado">Aprovado</SelectItem>
+                              <SelectItem value="Recusado">Recusado</SelectItem>
+                              <SelectItem value="No carrinho">No carrinho</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -205,9 +208,9 @@ export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
                       name="netValue"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Valor Total</FormLabel>
+                          <FormLabel>Valor Líquido</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.01" {...field} />
+                            <Input type="number" step="0.01" {...field} data-testid="input-net-value" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -220,7 +223,7 @@ export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
                     name="paymentStatus"
                     render={({ field }) => (
                       <FormItem className="space-y-3">
-                        <FormLabel>Status Pagamento (Mês Atual)</FormLabel>
+                        <FormLabel>Status Pagamento</FormLabel>
                         <FormControl>
                           <RadioGroup
                             onValueChange={field.onChange}
@@ -229,7 +232,7 @@ export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
                           >
                             <FormItem className="flex items-center space-x-2 space-y-0">
                               <FormControl>
-                                <RadioGroupItem value="Pendente" />
+                                <RadioGroupItem value="pending" />
                               </FormControl>
                               <FormLabel className="font-normal">
                                 Pendente
@@ -237,7 +240,7 @@ export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
                             </FormItem>
                             <FormItem className="flex items-center space-x-2 space-y-0">
                               <FormControl>
-                                <RadioGroupItem value="Pago" />
+                                <RadioGroupItem value="paid" />
                               </FormControl>
                               <FormLabel className="font-normal">
                                 Pago
@@ -251,7 +254,7 @@ export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
                   />
 
                   <div className="flex justify-end pt-4">
-                    <Button type="submit">Adicionar Pedido</Button>
+                    <Button type="submit" data-testid="button-submit-order">Adicionar Pedido</Button>
                   </div>
                 </form>
               </Form>
@@ -261,10 +264,7 @@ export function OrdersManager({ hideImport = false }: OrdersManagerProps) {
         </div>
       </div>
 
-      <div className="grid gap-8">
-        {!hideImport && <CSVUpload />}
-        <MonthlyOrders filterMonth={ordersFilterMonth} />
-      </div>
+      <ManualOrdersTable filterMonth={ordersFilterMonth} />
     </div>
   );
 }
