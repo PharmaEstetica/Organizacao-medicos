@@ -132,7 +132,7 @@ export function FormulaForm({ open, onOpenChange, editingFormula, onEditComplete
 
     const formulaData = {
       name: values.name,
-      prescriberId: selectedPrescriberIds.length > 0 ? selectedPrescriberIds[0] : null,
+      prescriberId: null,
       packagingId: values.packagingId === "none" ? null : parseInt(values.packagingId),
       content: values.content,
       pharmaceuticalForm: values.pharmaceuticalForm,
@@ -148,7 +148,21 @@ export function FormulaForm({ open, onOpenChange, editingFormula, onEditComplete
                 description: "As alterações foram salvas com sucesso.",
               });
               handleClose();
+            },
+            onError: (error) => {
+              toast({
+                title: "Erro ao vincular médicos",
+                description: "A fórmula foi atualizada, mas houve um erro ao vincular os médicos.",
+                variant: "destructive",
+              });
             }
+          });
+        },
+        onError: (error) => {
+          toast({
+            title: "Erro ao atualizar fórmula",
+            description: "Não foi possível salvar as alterações.",
+            variant: "destructive",
           });
         }
       });
@@ -156,13 +170,28 @@ export function FormulaForm({ open, onOpenChange, editingFormula, onEditComplete
       createFormula.mutate(formulaData, {
         onSuccess: (newFormula) => {
           if (selectedPrescriberIds.length > 0 && newFormula?.id) {
-            setFormulaPrescribers.mutate({ id: newFormula.id, prescriberIds: selectedPrescriberIds });
+            setFormulaPrescribers.mutate({ id: newFormula.id, prescriberIds: selectedPrescriberIds }, {
+              onError: (error) => {
+                toast({
+                  title: "Aviso",
+                  description: "Fórmula criada, mas houve um erro ao vincular os médicos.",
+                  variant: "destructive",
+                });
+              }
+            });
           }
           toast({
             title: "Fórmula criada",
             description: "A nova fórmula foi salva com sucesso.",
           });
           handleClose();
+        },
+        onError: (error) => {
+          toast({
+            title: "Erro ao criar fórmula",
+            description: "Não foi possível salvar a fórmula.",
+            variant: "destructive",
+          });
         }
       });
     }

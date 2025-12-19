@@ -90,6 +90,7 @@ export function useCreateFormula() {
     mutationFn: api.formulas.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["formulas"] });
+      queryClient.invalidateQueries({ queryKey: ["formulas-with-prescribers"] });
     },
   });
 }
@@ -101,6 +102,7 @@ export function useUpdateFormula() {
       api.formulas.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["formulas"] });
+      queryClient.invalidateQueries({ queryKey: ["formulas-with-prescribers"] });
     },
   });
 }
