@@ -125,6 +125,11 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    update: (id: number, data: Partial<Packaging>) =>
+      apiRequest<Packaging>(`/packagings/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
     delete: (id: number) =>
       apiRequest<void>(`/packagings/${id}`, { method: "DELETE" }),
   },

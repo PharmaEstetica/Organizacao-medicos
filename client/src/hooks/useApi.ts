@@ -66,6 +66,17 @@ export function useDeletePackaging() {
   });
 }
 
+export function useUpdatePackaging() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<Packaging> }) =>
+      api.packagings.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["packagings"] });
+    },
+  });
+}
+
 export function useFormulas() {
   return useQuery({
     queryKey: ["formulas"],

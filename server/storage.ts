@@ -37,6 +37,7 @@ export interface IStorage {
   getPackagings(): Promise<Packaging[]>;
   getPackaging(id: number): Promise<Packaging | undefined>;
   createPackaging(packaging: InsertPackaging): Promise<Packaging>;
+  updatePackaging(id: number, packaging: Partial<InsertPackaging>): Promise<Packaging | undefined>;
   deletePackaging(id: number): Promise<void>;
 
   getFormulas(): Promise<Formula[]>;
@@ -112,6 +113,11 @@ export class DatabaseStorage implements IStorage {
 
   async createPackaging(packaging: InsertPackaging): Promise<Packaging> {
     const result = await db.insert(packagings).values(packaging).returning();
+    return result[0];
+  }
+
+  async updatePackaging(id: number, packaging: Partial<InsertPackaging>): Promise<Packaging | undefined> {
+    const result = await db.update(packagings).set(packaging).where(eq(packagings.id, id)).returning();
     return result[0];
   }
 

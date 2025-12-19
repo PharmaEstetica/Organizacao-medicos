@@ -87,6 +87,18 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/packagings/:id", async (req, res) => {
+    try {
+      const packaging = await storage.updatePackaging(Number(req.params.id), req.body);
+      if (!packaging) {
+        return res.status(404).json({ error: "Packaging not found" });
+      }
+      res.json(packaging);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update packaging" });
+    }
+  });
+
   app.delete("/api/packagings/:id", async (req, res) => {
     try {
       await storage.deletePackaging(Number(req.params.id));
