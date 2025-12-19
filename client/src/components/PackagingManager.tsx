@@ -1,14 +1,17 @@
 import { useState, useEffect } from "react";
-import { usePackagings, useCreatePackaging, useDeletePackaging, useUpdatePackaging } from "@/hooks/useApi";
+import { usePackagings, useCreatePackaging, useDeletePackaging, useUpdatePackaging, usePrescribers, useSetPackagingPrescribers, usePackagingsWithPrescribers } from "@/hooks/useApi";
 import heic2any from "heic2any";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Package, Trash2, Plus, Image as ImageIcon, Upload, Edit2 } from "lucide-react";
+import { Package, Trash2, Plus, Image as ImageIcon, Upload, Edit2, Users, Loader2 } from "lucide-react";
 import { useProtectedAccess } from "@/hooks/useProtectedAccess";
 import { PasswordModal } from "./PasswordModal";
 import type { Packaging } from "@/lib/api";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -59,16 +62,33 @@ const packagingSchema = z.object({
 
 export function PackagingManager() {
   const { data: packagings = [] } = usePackagings();
+  const { data: packagingsWithPrescribers = [], isLoading: isLoadingPackagingsWithPrescribers } = usePackagingsWithPrescribers();
+  const { data: prescribers = [] } = usePrescribers();
   const createPackaging = useCreatePackaging();
   const deletePackaging = useDeletePackaging();
   const updatePackaging = useUpdatePackaging();
+  const setPackagingPrescribers = useSetPackagingPrescribers();
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [editingPackaging, setEditingPackaging] = useState<Packaging | null>(null);
+  const [selectedPrescriberIds, setSelectedPrescriberIds] = useState<number[]>([]);
+  const [prescribersLoaded, setPrescribersLoaded] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<{ type: 'delete' | 'edit'; id: number } | null>(null);
   const { isLocked, verifyPassword, showPasswordModal: protectedModalOpen, setShowPasswordModal: setProtectedModalOpen } = useProtectedAccess('excluir');
+
+  const togglePrescriber = (id: number) => {
+    setSelectedPrescriberIds(prev => 
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  };
+
+  const getPackagingPrescriberCount = (packagingId: number) => {
+    const packaging = packagingsWithPrescribers.find((p: any) => p.id === packagingId);
+    return packaging?.prescribers?.length || 0;
+  };
 
   const form = useForm<z.infer<typeof packagingSchema>>({
     resolver: zodResolver(packagingSchema),
@@ -84,6 +104,15 @@ export function PackagingManager() {
   });
 
   const onSubmit = (values: z.infer<typeof packagingSchema>) => {
+    if (editingPackaging && !prescribersLoaded) {
+      toast({
+        title: "Aguarde",
+        description: "Os dados ainda estão carregando. Por favor, aguarde.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const data = {
       ...values,
       imageUrl: imagePreview || values.imageUrl,
@@ -92,18 +121,66 @@ export function PackagingManager() {
     if (editingPackaging) {
       updatePackaging.mutate({ id: editingPackaging.id, data }, {
         onSuccess: () => {
-          form.reset();
-          setImagePreview(null);
-          setEditingPackaging(null);
-          setIsOpen(false);
+          setPackagingPrescribers.mutate({ id: editingPackaging.id, prescriberIds: selectedPrescriberIds }, {
+            onSuccess: () => {
+              toast({
+                title: "Embalagem atualizada",
+                description: "As alterações foram salvas com sucesso.",
+              });
+              form.reset();
+              setImagePreview(null);
+              setEditingPackaging(null);
+              setSelectedPrescriberIds([]);
+              setPrescribersLoaded(false);
+              setIsOpen(false);
+            },
+            onError: () => {
+              toast({
+                title: "Erro ao vincular médicos",
+                description: "A embalagem foi atualizada, mas houve um erro ao vincular os médicos. Tente novamente.",
+                variant: "destructive",
+              });
+            }
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Erro ao atualizar",
+            description: "Não foi possível salvar as alterações.",
+            variant: "destructive",
+          });
         }
       });
     } else {
       createPackaging.mutate(data, {
-        onSuccess: () => {
+        onSuccess: (newPackaging) => {
+          if (selectedPrescriberIds.length > 0 && newPackaging?.id) {
+            setPackagingPrescribers.mutate({ id: newPackaging.id, prescriberIds: selectedPrescriberIds }, {
+              onError: () => {
+                toast({
+                  title: "Aviso",
+                  description: "Embalagem criada, mas houve um erro ao vincular os médicos.",
+                  variant: "destructive",
+                });
+              }
+            });
+          }
+          toast({
+            title: "Embalagem criada",
+            description: "A nova embalagem foi salva com sucesso.",
+          });
           form.reset();
           setImagePreview(null);
+          setSelectedPrescriberIds([]);
+          setPrescribersLoaded(false);
           setIsOpen(false);
+        },
+        onError: () => {
+          toast({
+            title: "Erro ao criar",
+            description: "Não foi possível salvar a embalagem.",
+            variant: "destructive",
+          });
         }
       });
     }
@@ -139,6 +216,17 @@ export function PackagingManager() {
       imageUrl: pkg.imageUrl || "",
       labelSpecifications: (pkg as any).labelSpecifications || "",
     });
+    const packagingWithPrescribersData = packagingsWithPrescribers.find((p: any) => p.id === pkg.id);
+    if (packagingWithPrescribersData) {
+      const existingPrescriberIds = packagingWithPrescribersData.prescribers?.map((p: any) => p.id) || [];
+      setSelectedPrescriberIds(existingPrescriberIds);
+      setPrescribersLoaded(true);
+    } else if (!isLoadingPackagingsWithPrescribers) {
+      setSelectedPrescriberIds([]);
+      setPrescribersLoaded(true);
+    } else {
+      setPrescribersLoaded(false);
+    }
     setIsOpen(true);
   };
 
@@ -162,9 +250,22 @@ export function PackagingManager() {
       form.reset();
       setImagePreview(null);
       setEditingPackaging(null);
+      setSelectedPrescriberIds([]);
+      setPrescribersLoaded(false);
     }
     setIsOpen(open);
   };
+
+  useEffect(() => {
+    if (editingPackaging && !isLoadingPackagingsWithPrescribers && !prescribersLoaded) {
+      const packagingWithPrescribersData = packagingsWithPrescribers.find((p: any) => p.id === editingPackaging.id);
+      if (packagingWithPrescribersData) {
+        const existingPrescriberIds = packagingWithPrescribersData.prescribers?.map((p: any) => p.id) || [];
+        setSelectedPrescriberIds(existingPrescriberIds);
+      }
+      setPrescribersLoaded(true);
+    }
+  }, [editingPackaging, packagingsWithPrescribers, isLoadingPackagingsWithPrescribers, prescribersLoaded]);
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -365,8 +466,57 @@ export function PackagingManager() {
                     )}
                 </div>
 
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Médicos Vinculados
+                  </Label>
+                  <div className="border rounded-md p-3 max-h-[150px] overflow-y-auto">
+                    {prescribers.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Nenhum médico cadastrado</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {prescribers.map(p => (
+                          <label 
+                            key={p.id} 
+                            className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded-md transition-colors"
+                          >
+                            <Checkbox 
+                              checked={selectedPrescriberIds.includes(p.id)}
+                              onCheckedChange={() => togglePrescriber(p.id)}
+                            />
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={p.photoUrl || undefined} />
+                              <AvatarFallback className="text-[10px]">{p.name[0]}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm">{p.name}</span>
+                            <span className="text-xs text-muted-foreground ml-auto">{p.specialty}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {selectedPrescriberIds.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {selectedPrescriberIds.length} médico{selectedPrescriberIds.length > 1 ? 's' : ''} selecionado{selectedPrescriberIds.length > 1 ? 's' : ''}
+                    </p>
+                  )}
+                </div>
+
                 <div className="flex justify-end pt-4">
-                    <Button type="submit">{editingPackaging ? 'Atualizar' : 'Salvar Embalagem'}</Button>
+                    <Button 
+                      type="submit" 
+                      disabled={editingPackaging && !prescribersLoaded}
+                    >
+                      {editingPackaging && !prescribersLoaded ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Carregando...
+                        </>
+                      ) : (
+                        editingPackaging ? 'Atualizar' : 'Salvar Embalagem'
+                      )}
+                    </Button>
                 </div>
               </form>
             </Form>
@@ -383,13 +533,14 @@ export function PackagingManager() {
                     <TableHead>Fórm. Farmacêutica</TableHead>
                     <TableHead>Capacidade</TableHead>
                     <TableHead>Adesivo</TableHead>
+                    <TableHead>Médicos</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {packagings.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                             Nenhuma embalagem cadastrada.
                         </TableCell>
                     </TableRow>
@@ -415,6 +566,16 @@ export function PackagingManager() {
                                     <div className="flex flex-col">
                                         <Badge variant="outline" className="w-fit mb-1 border-primary/30 text-primary bg-primary/5">Sim</Badge>
                                         <span className="text-xs text-muted-foreground">{pkg.stickerSupplier}</span>
+                                    </div>
+                                ) : (
+                                    <span className="text-muted-foreground text-sm">-</span>
+                                )}
+                            </TableCell>
+                            <TableCell>
+                                {getPackagingPrescriberCount(pkg.id) > 0 ? (
+                                    <div className="flex items-center gap-1">
+                                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                        <span className="text-sm">{getPackagingPrescriberCount(pkg.id)}</span>
                                     </div>
                                 ) : (
                                     <span className="text-muted-foreground text-sm">-</span>
