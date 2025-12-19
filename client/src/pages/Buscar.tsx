@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { usePrescribers, useFormulas } from "@/hooks/useApi";
-import type { Prescriber, Formula } from "@/lib/api";
+import { usePrescribers, useFormulas, usePackagings } from "@/hooks/useApi";
+import type { Prescriber, Formula, Packaging } from "@/lib/api";
 import { Search, FlaskConical, Package, User, FileText, Activity } from "lucide-react";
 import {
   Dialog,
@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 export default function Buscar() {
   const { data: prescribers = [] } = usePrescribers();
   const { data: formulas = [] } = useFormulas();
+  const { data: packagings = [] } = usePackagings();
   const [searchTerm, setSearchTerm] = useState("");
   
   // State for modals
@@ -43,6 +44,11 @@ export default function Buscar() {
 
   const getPrescriberFormulas = (prescriberId: number) => {
     return formulas.filter(f => f.prescriberId === prescriberId);
+  };
+
+  const getPrescriberPackagings = (prescriber: Prescriber) => {
+    if (!prescriber.linkedPackagings || prescriber.linkedPackagings.length === 0) return [];
+    return packagings.filter(p => prescriber.linkedPackagings?.includes(p.id));
   };
 
   // Helper to "diagram" the formula content
@@ -275,6 +281,54 @@ export default function Buscar() {
                 <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
                     Nenhuma fórmula vinculada a este prescritor.
                 </div>
+            )}
+
+            {selectedPrescriber && getPrescriberPackagings(selectedPrescriber).length > 0 && (
+              <>
+                <Separator className="my-6" />
+                <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Embalagens Cadastradas
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                    {getPrescriberPackagings(selectedPrescriber).map(packaging => (
+                        <div 
+                            key={packaging.id} 
+                            className="rounded-lg border border-border bg-card overflow-hidden"
+                        >
+                            {packaging.imageUrl ? (
+                                <div className="h-32 w-full bg-muted/20 flex items-center justify-center overflow-hidden">
+                                    <img 
+                                        src={packaging.imageUrl} 
+                                        alt={packaging.name} 
+                                        className="h-full w-full object-contain"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="h-32 w-full bg-muted/20 flex items-center justify-center">
+                                    <Package className="h-8 w-8 text-muted-foreground/40" />
+                                </div>
+                            )}
+                            <div className="p-3 space-y-1">
+                                <h4 className="font-bold text-sm">{packaging.name}</h4>
+                                <div className="flex flex-wrap gap-1">
+                                    <Badge variant="secondary" className="text-xs">
+                                        {packaging.type}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                        {packaging.capacity}
+                                    </Badge>
+                                </div>
+                                {packaging.hasSticker && packaging.stickerSupplier && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Adesivo: {packaging.stickerSupplier}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+              </>
             )}
           </div>
         </DialogContent>
