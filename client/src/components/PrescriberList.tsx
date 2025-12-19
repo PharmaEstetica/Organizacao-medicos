@@ -135,8 +135,12 @@ export function PrescriberList({ onEdit }: PrescriberListProps) {
                 <TableRow key={prescriber.id} className="group hover:bg-muted/30 transition-colors border-b border-border/40">
                   <TableCell className="font-medium text-foreground py-4">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-sm bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                        {prescriber.name.charAt(0)}
+                      <div className="h-8 w-8 rounded-sm bg-primary/10 flex items-center justify-center text-primary font-bold text-xs overflow-hidden">
+                        {prescriber.photoUrl ? (
+                          <img src={prescriber.photoUrl} alt={prescriber.name} className="h-full w-full object-cover" />
+                        ) : (
+                          prescriber.name.charAt(0)
+                        )}
                       </div>
                       <span className="font-semibold">{prescriber.name}</span>
                     </div>

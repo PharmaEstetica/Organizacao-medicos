@@ -226,8 +226,12 @@ export default function Buscar() {
         <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-2xl flex items-center gap-3">
-                <div className="h-10 w-10 rounded-sm bg-primary/10 flex items-center justify-center text-primary text-base">
-                  {selectedPrescriber?.name.charAt(0)}
+                <div className="h-10 w-10 rounded-sm bg-primary/10 flex items-center justify-center text-primary text-base overflow-hidden">
+                  {selectedPrescriber?.photoUrl ? (
+                    <img src={selectedPrescriber.photoUrl} alt={selectedPrescriber.name} className="h-full w-full object-cover" />
+                  ) : (
+                    selectedPrescriber?.name.charAt(0)
+                  )}
                 </div>
                 {selectedPrescriber?.name}
             </DialogTitle>
