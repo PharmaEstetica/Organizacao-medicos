@@ -185,7 +185,7 @@ export default function Relatorios() {
 
         const nonEffectiveRows = sortedNonEffective.map(o => [
             new Date(o.orderDate).toLocaleDateString('pt-BR'),
-            o.status,
+            o.originalStatus || o.status,
             formatCurrency(parseFloat(o.netValue)),
             (o.patient || o.prescriberName || '').substring(0, 40),
             formatCurrency(parseFloat(o.netValue) * (commissionRate / 100))

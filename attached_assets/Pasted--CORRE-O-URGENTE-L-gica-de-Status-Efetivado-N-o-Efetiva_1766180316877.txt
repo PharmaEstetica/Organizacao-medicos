@@ -1,0 +1,182 @@
+# CORREÇÃO URGENTE: Lógica de Status Efetivado/Não Efetivado
+
+## Problema Identificado
+
+O PDF está classificando **TODOS** os pedidos como "Não efetivados", incluindo os com status "Aprovado".
+
+### Evidência:
+- No PDF, pedidos com status "Aprovado" aparecem em "Pedidos não efetivados"
+- Conversão mostra 0.00% (deveria ser ~45%)
+- Total Efetivados: R$ 0,00 (deveria ser R$ 4.838,97)
+
+---
+
+## O Erro
+
+A lógica de conversão de status NÃO está funcionando. O sistema está mantendo o status original ("Aprovado", "Recusado", "No carrinho") em vez de converter para ("Efetivado", "Não efetivado").
+
+---
+
+## CSV Original (Status)
+
+| Status no CSV | Deveria virar | Seção no PDF |
+|---------------|---------------|--------------|
+| `Aprovado` | `Efetivado` | Pedidos efetivados ✅ |
+| `Recusado` | `Não efetivado` | Pedidos não efetivados ❌ |
+| `No carrinho` | `Não efetivado` | Pedidos não efetivados ❌ |
+
+---
+
+## Onde Corrigir
+
+### 1. No Parser do CSV (csvParser.ts)
+```typescript
+// VERIFICAR se está convertendo o status:
+
+function normalizeStatus(status: string): 'Efetivado' | 'Não efetivado' {
+  const statusLower = status.toLowerCase().trim();
+  
+  // "Aprovado" = Efetivado
+  if (statusLower === 'aprovado') {
+    return 'Efetivado';
+  }
+  
+  // Qualquer outro (Recusado, No carrinho, etc) = Não efetivado
+  return 'Não efetivado';
+}
+
+// Usar no parsing:
+data.push({
+  prescriberName: row['Nome'],
+  orderNumber: row['Número'],
+  orderDate: parseDate(row['Data']),
+  status: normalizeStatus(row['Status']),  // ← CONVERTER AQUI
+  netValue: parseCurrency(row['Valor Líquido']),
+  patient: row['Paciente'] || undefined,
+});
+```
+
+### 2. Na Geração do PDF (pdfGenerator.ts)
+```typescript
+// VERIFICAR como está separando os pedidos:
+
+// ERRADO (comparando com status original):
+const efetivados = orders.filter(o => o.status === 'Aprovado');
+const naoEfetivados = orders.filter(o => o.status !== 'Aprovado');
+
+// CORRETO (comparando com status convertido):
+const efetivados = orders.filter(o => o.status === 'Efetivado');
+const naoEfetivados = orders.filter(o => o.status === 'Não efetivado');
+```
+
+### 3. Ao Salvar no Banco (se aplicável)
+```typescript
+// VERIFICAR se está salvando o status CONVERTIDO:
+
+// ERRADO (salvando status original):
+await db.run(`
+  INSERT INTO csv_orders (..., status, ...)
+  VALUES (..., ?, ...)
+`, [..., row.status, ...]);  // "Aprovado" vai pro banco
+
+// CORRETO (salvando status convertido):
+await db.run(`
+  INSERT INTO csv_orders (..., status, ...)
+  VALUES (..., ?, ...)
+`, [..., normalizeStatus(row.status), ...]);  // "Efetivado" vai pro banco
+```
+
+---
+
+## Fluxo Correto Completo
+```
+CSV Original:
+┌─────────────────────────────────────────────┐
+│ Nome: BRUNO FRAUCHES SOUZA                  │
+│ Status: Aprovado        ← STATUS ORIGINAL   │
+│ Valor: R$ 477,90                            │
+└─────────────────────────────────────────────┘
+              ↓
+         PARSER (csvParser.ts)
+              ↓
+┌─────────────────────────────────────────────┐
+│ prescriberName: "BRUNO FRAUCHES SOUZA"      │
+│ status: "Efetivado"     ← STATUS CONVERTIDO │
+│ netValue: 477.90                            │
+└─────────────────────────────────────────────┘
+              ↓
+         SALVAR NO BANCO
+              ↓
+┌─────────────────────────────────────────────┐
+│ INSERT INTO csv_orders                      │
+│ status = "Efetivado"    ← SALVAR CONVERTIDO │
+└─────────────────────────────────────────────┘
+              ↓
+         GERAR PDF
+              ↓
+┌─────────────────────────────────────────────┐
+│ WHERE status = 'Efetivado'                  │
+│ → Retorna pedido do Bruno                   │
+│ → Aparece em "Pedidos efetivados" ✅        │
+└─────────────────────────────────────────────┘
+```
+
+---
+
+## Debug Sugerido
+
+Adicionar logs para identificar onde o status está errado:
+```typescript
+// No parser:
+console.log('🔄 Status original:', row['Status']);
+console.log('🔄 Status convertido:', normalizeStatus(row['Status']));
+
+// Ao salvar:
+console.log('💾 Salvando status:', order.status);
+
+// Ao buscar para PDF:
+console.log('📊 Status no banco:', orders.map(o => o.status));
+
+// Ao separar:
+console.log('✅ Efetivados:', efetivados.length);
+console.log('❌ Não efetivados:', naoEfetivados.length);
+```
+
+---
+
+## Resultado Esperado
+
+### PDF Correto para BRUNO FRAUCHES SOUZA:
+```
+BRUNO FRAUCHES SOUZA                    CONVERSÃO 45.45%
+
+Pedidos efetivados (10 pedidos)
+┌────────────┬──────────┬──────────────┬─────────────────────────┬─────────┐
+│ 01/12/2025 │ Aprovado │ R$ 74,09     │ MARCIA HELENA GIACOMINI │ R$ 7,41 │
+│ 01/12/2025 │ Aprovado │ R$ 477,90    │ RODRIGO DA SILVA NUNES  │ R$ 47,79│
+│ 02/12/2025 │ Aprovado │ R$ 488,99    │ OSINEI ROQUE DA SILVEIRA│ R$ 48,90│
+│ ...        │ ...      │ ...          │ ...                     │ ...     │
+├────────────┴──────────┼──────────────┼─────────────────────────┼─────────┤
+│               TOTAL   │ R$ 4.838,97  │                         │ R$ 483,90│
+│               SALDO   │              │                         │ R$ 483,90│
+└───────────────────────┴──────────────┴─────────────────────────┴─────────┘
+
+Pedidos não efetivados (12 pedidos)
+┌────────────┬────────────┬──────────────┬─────────────────────────┬─────────┐
+│ 01/12/2025 │ Recusado   │ R$ 115,90    │ MARCIA HELENA GIACOMINI │ R$ 11,59│
+│ 01/12/2025 │ Recusado   │ R$ 434,70    │ RODRIGO DA SILVA NUNES  │ R$ 43,47│
+│ 02/12/2025 │ No carrinho│ R$ 998,45    │ CAIO CESAR DIAS RIBEIRO │ R$ 99,85│
+│ ...        │ ...        │ ...          │ ...                     │ ...     │
+├────────────┴────────────┼──────────────┼─────────────────────────┼─────────┤
+│                 TOTAL   │ R$ 7.534,69  │                         │ R$ 753,47│
+└─────────────────────────┴──────────────┴─────────────────────────┴─────────┘
+```
+
+---
+
+## Arquivos de Referência
+
+- **CSV:** `Relatorios_de_Orcamentos_e_Pedidos_por_Prescritor_Detalhado18122025142804.csv`
+- **PDF Errado:** `Relatorio_BRUNO_FRAUCHES_SOUZA_122025__19_.pdf` (todos como não efetivados)
+
+O Replit deve verificar a lógica de conversão de status em TODOS os pontos do fluxo.

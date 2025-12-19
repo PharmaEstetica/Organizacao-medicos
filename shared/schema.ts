@@ -101,6 +101,7 @@ export const csvOrders = pgTable("csv_orders", {
   orderNumbers: text("order_numbers").notNull(),
   orderDate: timestamp("order_date").notNull(),
   status: varchar("status", { length: 30 }).notNull(),
+  originalStatus: varchar("original_status", { length: 30 }),
   netValue: decimal("net_value", { precision: 10, scale: 2 }).notNull(),
   patient: text("patient"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

@@ -165,7 +165,8 @@ export function CSVUpload({ onReportGenerated }: CSVUploadProps) {
           prescriberName: order.prescriberName,
           orderNumbers: order.orderNumbers.join(','),
           orderDate: order.orderDate.toISOString(),
-          status: order.originalStatus || order.status,
+          status: order.status,
+          originalStatus: order.originalStatus || order.status,
           netValue: order.netValue.toString(),
           patient: order.patient,
         });
