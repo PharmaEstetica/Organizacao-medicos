@@ -23,7 +23,12 @@ export interface Packaging {
   imageUrl?: string | null;
   hasSticker: boolean;
   stickerSupplier?: string | null;
+  labelSpecifications?: string | null;
   createdAt: string;
+}
+
+export interface PackagingWithPrescribers extends Packaging {
+  prescribers: Prescriber[];
 }
 
 export interface Formula {
@@ -124,6 +129,7 @@ export const api = {
 
   packagings: {
     getAll: () => apiRequest<Packaging[]>("/packagings"),
+    getAllWithPrescribers: () => apiRequest<PackagingWithPrescribers[]>("/packagings-with-prescribers"),
     create: (data: Partial<Packaging>) =>
       apiRequest<Packaging>("/packagings", {
         method: "POST",
@@ -136,6 +142,13 @@ export const api = {
       }),
     delete: (id: number) =>
       apiRequest<void>(`/packagings/${id}`, { method: "DELETE" }),
+    getPrescribers: (id: number) =>
+      apiRequest<{ packagingId: number; prescriberId: number }[]>(`/packagings/${id}/prescribers`),
+    setPrescribers: (id: number, prescriberIds: number[]) =>
+      apiRequest<void>(`/packagings/${id}/prescribers`, {
+        method: "PUT",
+        body: JSON.stringify({ prescriberIds }),
+      }),
   },
 
   formulas: {

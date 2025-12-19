@@ -73,6 +73,26 @@ export function useUpdatePackaging() {
       api.packagings.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["packagings"] });
+      queryClient.invalidateQueries({ queryKey: ["packagings-with-prescribers"] });
+    },
+  });
+}
+
+export function usePackagingsWithPrescribers() {
+  return useQuery({
+    queryKey: ["packagings-with-prescribers"],
+    queryFn: api.packagings.getAllWithPrescribers,
+  });
+}
+
+export function useSetPackagingPrescribers() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, prescriberIds }: { id: number; prescriberIds: number[] }) =>
+      api.packagings.setPrescribers(id, prescriberIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["packagings"] });
+      queryClient.invalidateQueries({ queryKey: ["packagings-with-prescribers"] });
     },
   });
 }
