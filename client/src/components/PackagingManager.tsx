@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { usePackagings, useCreatePackaging, useDeletePackaging } from "@/hooks/useApi";
+import heic2any from "heic2any";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -83,14 +84,37 @@ export function PackagingManager() {
     });
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        let processedFile = file;
+        const isHeic = file.type === 'image/heic' || file.type === 'image/heif' || 
+                       file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
+        
+        if (isHeic) {
+          const blob = await heic2any({
+            blob: file,
+            toType: 'image/jpeg',
+            quality: 0.8
+          });
+          const convertedBlob = Array.isArray(blob) ? blob[0] : blob;
+          processedFile = new File([convertedBlob], file.name.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg'), { type: 'image/jpeg' });
+        }
+        
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(processedFile);
+      } catch (error) {
+        console.error('Error processing image:', error);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 

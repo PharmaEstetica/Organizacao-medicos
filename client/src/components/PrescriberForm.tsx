@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import heic2any from "heic2any";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -61,7 +62,26 @@ const formSchema = z.object({
   attachments: z.array(attachmentSchema).default([]),
 });
 
-const compressImage = (file: File, maxWidth = 800, quality = 0.7): Promise<string> => {
+const convertHeicToJpeg = async (file: File): Promise<File> => {
+  const isHeic = file.type === 'image/heic' || file.type === 'image/heif' || 
+                 file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
+  
+  if (!isHeic) return file;
+  
+  const blob = await heic2any({
+    blob: file,
+    toType: 'image/jpeg',
+    quality: 0.8
+  });
+  
+  const convertedBlob = Array.isArray(blob) ? blob[0] : blob;
+  const newFileName = file.name.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg');
+  return new File([convertedBlob as Blob], newFileName, { type: 'image/jpeg' });
+};
+
+const compressImage = async (file: File, maxWidth = 800, quality = 0.7): Promise<string> => {
+  const convertedFile = await convertHeicToJpeg(file);
+  
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -89,7 +109,7 @@ const compressImage = (file: File, maxWidth = 800, quality = 0.7): Promise<strin
       img.src = e.target?.result as string;
     };
     reader.onerror = reject;
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(convertedFile);
   });
 };
 
