@@ -38,7 +38,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { type Prescriber as ApiPrescriber } from "@/lib/api";
 import { usePackagings, useCreatePrescriber, useUpdatePrescriber } from "@/hooks/useApi";
-import { User, Stethoscope, FileBadge, Percent, Package, Check, ChevronsUpDown, Upload, X, FileText, File } from "lucide-react";
+import { User, Stethoscope, FileBadge, Percent, Package, Check, ChevronsUpDown, Upload, X, FileText, File, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
@@ -244,6 +244,34 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
     const updated = attachments.filter((_, i) => i !== index);
     setAttachments(updated);
     form.setValue("attachments", updated);
+  };
+
+  const downloadAttachment = (attachment: Attachment) => {
+    try {
+      const byteCharacters = atob(attachment.data.split(',')[1] || attachment.data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: attachment.type });
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = attachment.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Erro ao baixar:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível baixar o arquivo.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getFileIcon = (type: string) => {
@@ -581,18 +609,35 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
                     <div className="border border-border rounded-sm divide-y divide-border">
                       {attachments.map((attachment, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-muted/10">
-                          <div className="flex items-center gap-3">
-                            {getFileIcon(attachment.type)}
-                            <span className="text-sm font-medium truncate max-w-[200px]">{attachment.name}</span>
-                          </div>
                           <button
                             type="button"
-                            onClick={() => removeAttachment(index)}
-                            className="p-1 hover:bg-destructive/10 rounded-sm transition-colors"
-                            data-testid={`button-remove-attachment-${index}`}
+                            onClick={() => downloadAttachment(attachment)}
+                            className="flex items-center gap-3 hover:text-primary transition-colors text-left flex-1 min-w-0"
+                            title="Clique para baixar"
                           >
-                            <X className="h-4 w-4 text-destructive" />
+                            {getFileIcon(attachment.type)}
+                            <span className="text-sm font-medium truncate max-w-[200px]">{attachment.name}</span>
                           </button>
+                          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                            <button
+                              type="button"
+                              onClick={() => downloadAttachment(attachment)}
+                              className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-sm transition-colors"
+                              title="Baixar arquivo"
+                              data-testid={`button-download-attachment-${index}`}
+                            >
+                              <Download className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeAttachment(index)}
+                              className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-sm transition-colors"
+                              title="Remover arquivo"
+                              data-testid={`button-remove-attachment-${index}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>

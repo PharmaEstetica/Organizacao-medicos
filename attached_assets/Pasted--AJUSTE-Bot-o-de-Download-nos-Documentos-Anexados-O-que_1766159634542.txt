@@ -1,0 +1,143 @@
+# AJUSTE: Botão de Download nos Documentos Anexados
+
+## O que fazer
+
+Adicionar botão de download (⬇️) ao lado do botão de remover (×) nos documentos anexados dentro do modal "Editar Prescritor".
+
+---
+
+## Antes (atual):
+```
+DOCUMENTOS ANEXADOS
+
+📄 SKOPIA__WORD_PREPARO_...                              ×
+```
+
+---
+
+## Depois (corrigido):
+```
+DOCUMENTOS ANEXADOS
+
+📄 SKOPIA__WORD_PREPARO_...                        ⬇️    ×
+                                                   ↑     ↑
+                                              download  remover
+```
+
+---
+
+## Implementação
+```tsx
+// Dentro do modal "Editar Prescritor"
+// Seção de documentos anexados
+
+{documents.map((doc) => (
+  <div 
+    key={doc.id} 
+    className="flex items-center justify-between p-2 bg-gray-50 rounded border"
+  >
+    {/* Ícone + Nome do arquivo (clicável para download) */}
+    <button
+      onClick={() => handleDownload(doc)}
+      className="flex items-center gap-2 text-left hover:text-blue-600 hover:underline flex-1 min-w-0"
+      title="Clique para baixar"
+    >
+      <FileText size={18} className="text-gray-500 flex-shrink-0" />
+      <span className="truncate text-sm">{doc.filename}</span>
+    </button>
+    
+    {/* Botões de ação */}
+    <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+      {/* Botão Download */}
+      <button
+        onClick={() => handleDownload(doc)}
+        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+        title="Baixar arquivo"
+      >
+        <Download size={16} />
+      </button>
+      
+      {/* Botão Remover */}
+      <button
+        onClick={() => handleRemove(doc.id)}
+        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+        title="Remover arquivo"
+      >
+        <X size={16} />
+      </button>
+    </div>
+  </div>
+))}
+```
+
+---
+
+## Função de Download
+```tsx
+const handleDownload = async (doc: AttachedDocument) => {
+  try {
+    const response = await fetch(`/api/documents/${doc.id}/download`);
+    
+    if (!response.ok) {
+      throw new Error('Erro ao baixar');
+    }
+    
+    const blob = await response.blob();
+    
+    // Criar link temporário para download
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = doc.filename;  // Nome original do arquivo
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+  } catch (error) {
+    console.error('Erro ao baixar:', error);
+    alert('Erro ao baixar o arquivo. Tente novamente.');
+  }
+};
+```
+
+---
+
+## Rota de Download no Backend (se não existir)
+```typescript
+// GET /api/documents/:id/download
+
+app.get('/api/documents/:id/download', async (req, res) => {
+  const { id } = req.params;
+  
+  const doc = await db.get('SELECT * FROM documents WHERE id = ?', [id]);
+  
+  if (!doc) {
+    return res.status(404).json({ error: 'Documento não encontrado' });
+  }
+  
+  const filePath = path.join(__dirname, '../uploads/documents', doc.filepath);
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Arquivo não encontrado' });
+  }
+  
+  res.setHeader('Content-Disposition', `attachment; filename="${doc.filename}"`);
+  res.setHeader('Content-Type', doc.mimetype || 'application/octet-stream');
+  
+  fs.createReadStream(filePath).pipe(res);
+});
+```
+
+---
+
+## Aplicar em todos os modais com documentos
+
+| Modal | Tem documentos? | Adicionar download? |
+|-------|-----------------|---------------------|
+| Editar Prescritor | ✅ | ✅ SIM |
+| Editar Embalagem | ✅ | ✅ SIM |
+| Editar Fórmula | ✅ | ✅ SIM |
+| Criar Prescritor | ✅ | ✅ SIM |
+| Criar Embalagem | ✅ | ✅ SIM |
+| Criar Fórmula | ✅ | ✅ SIM |
