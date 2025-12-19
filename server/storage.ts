@@ -6,6 +6,7 @@ import {
   packagings,
   formulas,
   formulaPrescribers,
+  packagingPrescribers,
   csvOrders,
   manualOrders,
   reports,
@@ -19,6 +20,8 @@ import {
   type InsertFormula,
   type FormulaPrescribers,
   type InsertFormulaPrescribers,
+  type PackagingPrescribers,
+  type InsertPackagingPrescribers,
   type CsvOrder,
   type InsertCsvOrder,
   type ManualOrder,
@@ -52,6 +55,10 @@ export interface IStorage {
   getFormulaPrescribers(formulaId: number): Promise<FormulaPrescribers[]>;
   setFormulaPrescribers(formulaId: number, prescriberIds: number[]): Promise<void>;
   getFormulasWithPrescribers(): Promise<(Formula & { prescribers: Prescriber[] })[]>;
+
+  getPackagingPrescribers(packagingId: number): Promise<PackagingPrescribers[]>;
+  setPackagingPrescribers(packagingId: number, prescriberIds: number[]): Promise<void>;
+  getPackagingsWithPrescribers(): Promise<(Packaging & { prescribers: Prescriber[] })[]>;
 
   getCsvOrders(): Promise<CsvOrder[]>;
   createCsvOrder(order: InsertCsvOrder): Promise<CsvOrder>;
@@ -184,6 +191,37 @@ export class DatabaseStorage implements IStorage {
       );
       
       return { ...formula, prescribers: linkedPrescribers };
+    });
+  }
+
+  async getPackagingPrescribers(packagingId: number): Promise<PackagingPrescribers[]> {
+    return await db.select().from(packagingPrescribers).where(eq(packagingPrescribers.packagingId, packagingId));
+  }
+
+  async setPackagingPrescribers(packagingId: number, prescriberIds: number[]): Promise<void> {
+    await db.delete(packagingPrescribers).where(eq(packagingPrescribers.packagingId, packagingId));
+    if (prescriberIds.length > 0) {
+      await db.insert(packagingPrescribers).values(
+        prescriberIds.map(prescriberId => ({ packagingId, prescriberId }))
+      );
+    }
+  }
+
+  async getPackagingsWithPrescribers(): Promise<(Packaging & { prescribers: Prescriber[] })[]> {
+    const allPackagings = await db.select().from(packagings).orderBy(desc(packagings.createdAt));
+    const allPrescribers = await db.select().from(prescribers);
+    const allPackagingPrescribers = await db.select().from(packagingPrescribers);
+    
+    return allPackagings.map(packaging => {
+      const linkedPrescriberIds = allPackagingPrescribers
+        .filter(pp => pp.packagingId === packaging.id)
+        .map(pp => pp.prescriberId);
+      
+      const linkedPrescribers = allPrescribers.filter(p => 
+        linkedPrescriberIds.includes(p.id)
+      );
+      
+      return { ...packaging, prescribers: linkedPrescribers };
     });
   }
 

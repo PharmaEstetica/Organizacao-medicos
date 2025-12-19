@@ -1,0 +1,267 @@
+# AJUSTE: Busca Completa + Diagrama com Médicos Vinculados
+
+## O que fazer
+
+1. **Busca deve incluir EMBALAGENS** (além de fórmulas e prescritores)
+2. **Diagrama deve mostrar médicos vinculados** conectados por linhas
+
+---
+
+## 1. Busca Atualizada
+
+### Resultados da busca devem mostrar 3 categorias:
+```
+🔍 Buscar: "minoxidil"
+
+┌─────────────────────────────────────────────────────────────────┐
+│ 👥 Prescritores Encontrados                                     │
+├─────────────────────────────────────────────────────────────────┤
+│ [foto] BRUNO FRAUCHES SOUZA    │  [foto] Vitor Frauches         │
+│        Capilar                 │         Dermatologia           │
+│        P                       │         C                      │
+│        FÓRMULAS: 1             │         FÓRMULAS: 2            │
+│        EMBALAGENS: 1           │         EMBALAGENS: 0          │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ 🧪 Fórmulas Encontradas                                         │
+├─────────────────────────────────────────────────────────────────┤
+│ minoxidil spray                │  minoxidil utópico             │
+│ 👤 BRUNO FRAUCHES SOUZA        │  👤 Vitor Frauches             │
+│ Minoxiil utopico 5% Cafeina 2% │  minoxidil 3% 10/1 dil         │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ 📦 Embalagens Encontradas                            ← NOVO     │
+├─────────────────────────────────────────────────────────────────┤
+│ [foto] Frasco Spray 100ml      │  [foto] Pote Creme 50g         │
+│        Fórmula: Solução        │         Fórmula: Creme         │
+│        👤 2 médicos vinculados │         👤 1 médico vinculado  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. Diagrama com Médicos Vinculados
+
+### Ao clicar em uma FÓRMULA ou EMBALAGEM, abrir modal com diagrama:
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 🧪 Diagrama da Fórmula                                                 [X]  │
+│ Visualização estruturada da composição farmacêutica.                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│                        ┌─────────────────┐                                  │
+│                        │     spary       │                                  │
+│                        │ minoxidil spray │                                  │
+│                        └────────┬────────┘                                  │
+│                                 │                                           │
+│                                 ▼                                           │
+│    ┌────────────────────────────────────────────┐                           │
+│    │ 🧪 Minoxiil utopico 5% Cafeina 2%          │                           │
+│    └──────────────────────┬─────────────────────┘                           │
+│                           │                                                 │
+│              ┌────────────┴────────────┐                                    │
+│              │                         │                                    │
+│              ▼                         ▼                                    │
+│    ┌──────────────────┐      ┌──────────────────┐                           │
+│    │ [foto]           │      │ [foto]           │                           │
+│    │ Bruno Frauches   │      │ Vitor Frauches   │                           │
+│    │ Capilar          │      │ Dermatologia     │                           │
+│    └──────────────────┘      └──────────────────┘                           │
+│                                                                             │
+│  ───────────────────────────────────────────────────────────────────────    │
+│                                                                             │
+│  RESUMO DA COMPOSIÇÃO                                                       │
+│  Minoxiil utopico 5% Cafeina 2%                                             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3. Diagrama para EMBALAGEM
+
+### Ao clicar em uma EMBALAGEM:
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 📦 Diagrama da Embalagem                                               [X]  │
+│ Visualização dos vínculos da embalagem.                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│                        ┌─────────────────────┐                              │
+│                        │ [foto embalagem]    │                              │
+│                        │ Frasco Spray 100ml  │                              │
+│                        │ Fórmula: Solução    │                              │
+│                        │ Capacidade: 100ml   │                              │
+│                        └──────────┬──────────┘                              │
+│                                   │                                         │
+│                   ┌───────────────┼───────────────┐                         │
+│                   │               │               │                         │
+│                   ▼               ▼               ▼                         │
+│          ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                    │
+│          │ [foto]      │ │ [foto]      │ │ [foto]      │                    │
+│          │ Bruno       │ │ Vitor       │ │ Maria       │                    │
+│          │ Frauches    │ │ Frauches    │ │ Silva       │                    │
+│          │ Capilar     │ │ Dermato     │ │ Nutrição    │                    │
+│          └─────────────┘ └─────────────┘ └─────────────┘                    │
+│                                                                             │
+│  ───────────────────────────────────────────────────────────────────────    │
+│                                                                             │
+│  ESPECIFICAÇÕES DO RÓTULO                                                   │
+│  Uso tópico. Aplicar 2x ao dia no couro cabeludo.                           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 4. Banco de Dados - Vincular Embalagem a Médicos
+
+### Nova tabela de relacionamento N:N para embalagens:
+```sql
+-- Embalagem pode ter vários médicos vinculados
+CREATE TABLE packaging_prescribers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  packaging_id INTEGER NOT NULL,
+  prescriber_id INTEGER NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (packaging_id) REFERENCES packaging(id) ON DELETE CASCADE,
+  FOREIGN KEY (prescriber_id) REFERENCES prescribers(id) ON DELETE CASCADE,
+  UNIQUE(packaging_id, prescriber_id)
+);
+```
+
+---
+
+## 5. Formulário de Embalagem - Adicionar seleção de médicos
+```
+📦 Cadastrar Embalagem
+
+[foto da embalagem]
+
+Nome *
+┌─────────────────────────────────────┐
+│ Frasco Spray 100ml                  │
+└─────────────────────────────────────┘
+
+Fórmula Farmacêutica *
+┌─────────────────────────────────────┐
+│ Solução                             │
+└─────────────────────────────────────┘
+
+Capacidade *
+┌─────────────────────────────────────┐
+│ 100ml                               │
+└─────────────────────────────────────┘
+
+Médicos Vinculados                                    ← NOVO CAMPO
+┌─────────────────────────────────────────────────────────────┐
+│ ☑ Dr. Bruno Frauches Souza                                  │
+│ ☑ Dr. Vitor Frauches                                        │
+│ ☐ Dra. Maria Silva                                          │
+└─────────────────────────────────────────────────────────────┘
+
+Especificações do Rótulo (opcional)
+┌─────────────────────────────────────────────────────────────┐
+│ Uso tópico. Aplicar 2x ao dia...                            │
+└─────────────────────────────────────────────────────────────┘
+
+                              [ Cancelar ]  [ Salvar ]
+```
+
+---
+
+## 6. Lógica da Busca
+```typescript
+// Buscar em 3 tabelas simultaneamente
+async function search(query: string) {
+  const prescribers = await db.all(`
+    SELECT * FROM prescribers 
+    WHERE name LIKE ? OR specialty LIKE ?
+  `, [`%${query}%`, `%${query}%`]);
+
+  const formulas = await db.all(`
+    SELECT f.*, GROUP_CONCAT(p.id) as prescriber_ids
+    FROM formulas f
+    LEFT JOIN formula_prescribers fp ON f.id = fp.formula_id
+    LEFT JOIN prescribers p ON fp.prescriber_id = p.id
+    WHERE f.name LIKE ? OR f.description LIKE ?
+    GROUP BY f.id
+  `, [`%${query}%`, `%${query}%`]);
+
+  const packaging = await db.all(`
+    SELECT pkg.*, GROUP_CONCAT(p.id) as prescriber_ids
+    FROM packaging pkg
+    LEFT JOIN packaging_prescribers pp ON pkg.id = pp.packaging_id
+    LEFT JOIN prescribers p ON pp.prescriber_id = p.id
+    WHERE pkg.name LIKE ? OR pkg.pharmaceutical_form LIKE ?
+    GROUP BY pkg.id
+  `, [`%${query}%`, `%${query}%`]);
+
+  return { prescribers, formulas, packaging };
+}
+```
+
+---
+
+## 7. Componente do Diagrama (React)
+```tsx
+// Usar linhas SVG para conectar os boxes
+// Ou biblioteca como react-flow para diagramas interativos
+
+interface DiagramProps {
+  item: Formula | Packaging;
+  prescribers: Prescriber[];
+}
+
+function Diagram({ item, prescribers }: DiagramProps) {
+  return (
+    <div className="relative">
+      {/* Box principal (fórmula ou embalagem) */}
+      <div className="mx-auto w-64 p-4 border rounded-lg bg-white shadow">
+        {item.image_path && <img src={item.image_path} className="w-16 h-16 mx-auto" />}
+        <h3 className="font-bold text-center">{item.name}</h3>
+      </div>
+      
+      {/* Linha vertical */}
+      <div className="w-0.5 h-8 bg-gray-300 mx-auto" />
+      
+      {/* Container dos médicos */}
+      <div className="flex justify-center gap-4 flex-wrap">
+        {prescribers.map((p, i) => (
+          <div key={p.id} className="relative">
+            {/* Linha conectora */}
+            <div className="absolute -top-8 left-1/2 w-0.5 h-8 bg-gray-300" />
+            
+            {/* Card do médico */}
+            <div className="w-32 p-3 border rounded-lg bg-white shadow text-center">
+              {p.image_path ? (
+                <img src={p.image_path} className="w-12 h-12 rounded-full mx-auto" />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gray-200 mx-auto flex items-center justify-center">
+                  <User size={24} className="text-gray-400" />
+                </div>
+              )}
+              <p className="font-medium text-sm mt-2">{p.name}</p>
+              <p className="text-xs text-gray-500">{p.specialty}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## Resumo das Alterações
+
+| Item | Descrição |
+|------|-----------|
+| Busca | Incluir embalagens nos resultados |
+| Embalagens | Permitir vincular a múltiplos médicos (N:N) |
+| Diagrama Fórmula | Mostrar médicos vinculados conectados por linhas |
+| Diagrama Embalagem | Mostrar médicos vinculados conectados por linhas |
+| Visual | Foto do médico + nome + especialidade nos boxes |

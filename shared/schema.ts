@@ -80,6 +80,21 @@ export const insertFormulaPrescribersSchema = createInsertSchema(formulaPrescrib
 export type InsertFormulaPrescribers = z.infer<typeof insertFormulaPrescribersSchema>;
 export type FormulaPrescribers = typeof formulaPrescribers.$inferSelect;
 
+export const packagingPrescribers = pgTable("packaging_prescribers", {
+  id: serial("id").primaryKey(),
+  packagingId: integer("packaging_id").references(() => packagings.id, { onDelete: 'cascade' }).notNull(),
+  prescriberId: integer("prescriber_id").references(() => prescribers.id, { onDelete: 'cascade' }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPackagingPrescribersSchema = createInsertSchema(packagingPrescribers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPackagingPrescribers = z.infer<typeof insertPackagingPrescribersSchema>;
+export type PackagingPrescribers = typeof packagingPrescribers.$inferSelect;
+
 export const csvOrders = pgTable("csv_orders", {
   id: serial("id").primaryKey(),
   prescriberName: text("prescriber_name").notNull(),

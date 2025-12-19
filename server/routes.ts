@@ -176,6 +176,34 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/packagings-with-prescribers", async (req, res) => {
+    try {
+      const packagings = await storage.getPackagingsWithPrescribers();
+      res.json(packagings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch packagings with prescribers" });
+    }
+  });
+
+  app.get("/api/packagings/:id/prescribers", async (req, res) => {
+    try {
+      const prescribers = await storage.getPackagingPrescribers(Number(req.params.id));
+      res.json(prescribers);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch packaging prescribers" });
+    }
+  });
+
+  app.put("/api/packagings/:id/prescribers", async (req, res) => {
+    try {
+      const { prescriberIds } = req.body;
+      await storage.setPackagingPrescribers(Number(req.params.id), prescriberIds || []);
+      res.status(200).json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update packaging prescribers" });
+    }
+  });
+
   app.get("/api/csv-orders", async (req, res) => {
     try {
       const orders = await storage.getCsvOrders();
