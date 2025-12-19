@@ -41,6 +41,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { usePrescribers, usePackagings, useCreateFormula, useUpdateFormula, usePharmaceuticalForms, useCreatePharmaceuticalForm, useSetFormulaPrescribers } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 import { Check, ChevronsUpDown, X } from "lucide-react";
@@ -225,7 +226,7 @@ export function FormulaForm({ open, onOpenChange, editingFormula, onEditComplete
             />
 
             <div className="space-y-2">
-              <FormLabel>Médicos Vinculados</FormLabel>
+              <Label>Médicos Vinculados</Label>
               <div className="border rounded-md p-3 max-h-[150px] overflow-y-auto">
                 {prescribers.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhum médico cadastrado</p>
