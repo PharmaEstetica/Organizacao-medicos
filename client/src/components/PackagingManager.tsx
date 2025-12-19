@@ -1,10 +1,13 @@
-import { useState } from "react";
-import { usePackagings, useCreatePackaging, useDeletePackaging } from "@/hooks/useApi";
+import { useState, useEffect } from "react";
+import { usePackagings, useCreatePackaging, useDeletePackaging, useUpdatePackaging } from "@/hooks/useApi";
 import heic2any from "heic2any";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Package, Trash2, Plus, Image as ImageIcon, Upload } from "lucide-react";
+import { Package, Trash2, Plus, Image as ImageIcon, Upload, Edit2 } from "lucide-react";
+import { useProtectedAccess } from "@/hooks/useProtectedAccess";
+import { PasswordModal } from "./PasswordModal";
+import type { Packaging } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -56,8 +59,14 @@ export function PackagingManager() {
   const { data: packagings = [] } = usePackagings();
   const createPackaging = useCreatePackaging();
   const deletePackaging = useDeletePackaging();
+  const updatePackaging = useUpdatePackaging();
   const [isOpen, setIsOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [editingPackaging, setEditingPackaging] = useState<Packaging | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{ type: 'delete' | 'edit'; id: number } | null>(null);
+  const { isLocked, verifyPassword, showPasswordModal: protectedModalOpen, setShowPasswordModal: setProtectedModalOpen } = useProtectedAccess('excluir');
 
   const form = useForm<z.infer<typeof packagingSchema>>({
     resolver: zodResolver(packagingSchema),
@@ -72,16 +81,85 @@ export function PackagingManager() {
   });
 
   const onSubmit = (values: z.infer<typeof packagingSchema>) => {
-    createPackaging.mutate({
-        ...values,
-        imageUrl: imagePreview || values.imageUrl,
-    }, {
-      onSuccess: () => {
-        form.reset();
-        setImagePreview(null);
-        setIsOpen(false);
-      }
+    const data = {
+      ...values,
+      imageUrl: imagePreview || values.imageUrl,
+    };
+    
+    if (editingPackaging) {
+      updatePackaging.mutate({ id: editingPackaging.id, data }, {
+        onSuccess: () => {
+          form.reset();
+          setImagePreview(null);
+          setEditingPackaging(null);
+          setIsOpen(false);
+        }
+      });
+    } else {
+      createPackaging.mutate(data, {
+        onSuccess: () => {
+          form.reset();
+          setImagePreview(null);
+          setIsOpen(false);
+        }
+      });
+    }
+  };
+
+  const handleEditClick = (pkg: Packaging) => {
+    if (!isLocked) {
+      openEditDialog(pkg);
+    } else {
+      setPendingAction({ type: 'edit', id: pkg.id });
+      setShowPasswordModal(true);
+    }
+  };
+
+  const handleDeleteClick = (id: number) => {
+    if (!isLocked) {
+      deletePackaging.mutate(id);
+    } else {
+      setPendingAction({ type: 'delete', id });
+      setShowPasswordModal(true);
+    }
+  };
+
+  const openEditDialog = (pkg: Packaging) => {
+    setEditingPackaging(pkg);
+    setImagePreview(pkg.imageUrl || null);
+    form.reset({
+      name: pkg.name,
+      type: pkg.type,
+      capacity: pkg.capacity,
+      hasSticker: pkg.hasSticker,
+      stickerSupplier: pkg.stickerSupplier || "",
+      imageUrl: pkg.imageUrl || "",
     });
+    setIsOpen(true);
+  };
+
+  const handlePasswordVerify = async (password: string): Promise<boolean> => {
+    const success = await verifyPassword(password);
+    if (success && pendingAction) {
+      setShowPasswordModal(false);
+      if (pendingAction.type === 'delete') {
+        deletePackaging.mutate(pendingAction.id);
+      } else if (pendingAction.type === 'edit') {
+        const pkg = packagings.find(p => p.id === pendingAction.id);
+        if (pkg) openEditDialog(pkg);
+      }
+      setPendingAction(null);
+    }
+    return success;
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      form.reset();
+      setImagePreview(null);
+      setEditingPackaging(null);
+    }
+    setIsOpen(open);
   };
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,17 +206,17 @@ export function PackagingManager() {
           </h2>
           <p className="text-muted-foreground text-sm">Gerencie o estoque de embalagens disponíveis.</p>
         </div>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <Dialog open={isOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={() => { setEditingPackaging(null); form.reset(); setImagePreview(null); }}>
               <Plus className="mr-2 h-4 w-4" />
               Nova Embalagem
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Cadastrar Embalagem</DialogTitle>
-              <DialogDescription>Adicione uma nova opção de embalagem.</DialogDescription>
+              <DialogTitle>{editingPackaging ? 'Editar Embalagem' : 'Cadastrar Embalagem'}</DialogTitle>
+              <DialogDescription>{editingPackaging ? 'Atualize as informações da embalagem.' : 'Adicione uma nova opção de embalagem.'}</DialogDescription>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
@@ -266,7 +344,7 @@ export function PackagingManager() {
                 </div>
 
                 <div className="flex justify-end pt-4">
-                    <Button type="submit">Salvar Embalagem</Button>
+                    <Button type="submit">{editingPackaging ? 'Atualizar' : 'Salvar Embalagem'}</Button>
                 </div>
               </form>
             </Form>
@@ -321,9 +399,14 @@ export function PackagingManager() {
                                 )}
                             </TableCell>
                             <TableCell className="text-right">
-                                <Button variant="ghost" size="icon" onClick={() => deletePackaging.mutate(pkg.id)}>
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                                <div className="flex justify-end gap-1">
+                                    <Button variant="ghost" size="icon" onClick={() => handleEditClick(pkg)}>
+                                        <Edit2 className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(pkg.id)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
                             </TableCell>
                         </TableRow>
                     ))
@@ -331,6 +414,13 @@ export function PackagingManager() {
             </TableBody>
         </Table>
       </div>
+
+      <PasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => { setShowPasswordModal(false); setPendingAction(null); }}
+        onVerify={handlePasswordVerify}
+        title="Digite a senha para realizar esta operação."
+      />
     </div>
   );
 }
