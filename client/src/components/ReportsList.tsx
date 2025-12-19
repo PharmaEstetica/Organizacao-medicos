@@ -78,7 +78,7 @@ export function ReportsList({ onDownload }: ReportsListProps) {
               <TableHead className="font-semibold">Mês Ref.</TableHead>
               <TableHead className="font-semibold">Prescritor</TableHead>
               <TableHead className="text-right font-semibold">Total Efetivado</TableHead>
-              <TableHead className="text-right font-semibold">Porcentagem</TableHead>
+              <TableHead className="text-right font-semibold">Desconto</TableHead>
               <TableHead className="text-right font-semibold">Saldo Final</TableHead>
               <TableHead className="text-right font-semibold">Ações</TableHead>
             </TableRow>

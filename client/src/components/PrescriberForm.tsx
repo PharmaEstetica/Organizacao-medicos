@@ -515,7 +515,7 @@ export function PrescriberForm({ onSuccess, initialData }: PrescriberFormProps) 
             name="commissionPercentage"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Porcentagem (%)</FormLabel>
+                <FormLabel className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Desconto (%)</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.1" {...field} className="rounded-sm border-border bg-muted/20 focus:bg-background h-11" />
                 </FormControl>
