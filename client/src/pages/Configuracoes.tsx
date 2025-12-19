@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 interface SettingsState {
   relatorios_protected: boolean;
   relatorios_password: string;
+  cadastros_protected: boolean;
+  cadastros_password: string;
   delete_protected: boolean;
   delete_password: string;
   config_protected: boolean;
@@ -32,6 +34,8 @@ export default function Configuracoes() {
   const [settings, setSettings] = useState<SettingsState>({
     relatorios_protected: true,
     relatorios_password: '',
+    cadastros_protected: false,
+    cadastros_password: '',
     delete_protected: true,
     delete_password: '',
     config_protected: true,
@@ -40,6 +44,7 @@ export default function Configuracoes() {
   
   const [showPasswords, setShowPasswords] = useState({
     relatorios: false,
+    cadastros: false,
     delete: false,
     config: false
   });
@@ -67,6 +72,8 @@ export default function Configuracoes() {
       setSettings({
         relatorios_protected: data.relatorios_protected === 'true',
         relatorios_password: '',
+        cadastros_protected: data.cadastros_protected === 'true',
+        cadastros_password: '',
         delete_protected: data.delete_protected === 'true',
         delete_password: '',
         config_protected: data.config_protected === 'true',
@@ -103,6 +110,8 @@ export default function Configuracoes() {
           settings: {
             relatorios_protected: String(settings.relatorios_protected),
             relatorios_password: settings.relatorios_password,
+            cadastros_protected: String(settings.cadastros_protected),
+            cadastros_password: settings.cadastros_password,
             delete_protected: String(settings.delete_protected),
             delete_password: settings.delete_password,
             config_protected: String(settings.config_protected),
@@ -214,6 +223,42 @@ export default function Configuracoes() {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                   >
                     {showPasswords.relatorios ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4 pb-4 border-b">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-base font-medium">Cadastros</Label>
+                <p className="text-sm text-muted-foreground">Exigir senha para acessar a aba Cadastros</p>
+              </div>
+              <Switch
+                checked={settings.cadastros_protected}
+                onCheckedChange={(v) => setSettings({ ...settings, cadastros_protected: v })}
+                data-testid="switch-cadastros-protected"
+              />
+            </div>
+            {settings.cadastros_protected && (
+              <div className="ml-4 space-y-2">
+                <Label className="text-sm">Senha:</Label>
+                <div className="relative max-w-xs">
+                  <Input
+                    type={showPasswords.cadastros ? 'text' : 'password'}
+                    value={settings.cadastros_password}
+                    onChange={(e) => setSettings({ ...settings, cadastros_password: e.target.value })}
+                    className="pr-10 rounded-sm"
+                    placeholder="Digite a senha"
+                    data-testid="input-cadastros-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswords({ ...showPasswords, cadastros: !showPasswords.cadastros })}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  >
+                    {showPasswords.cadastros ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>

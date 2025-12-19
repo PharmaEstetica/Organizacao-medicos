@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PrescriberForm } from "@/components/PrescriberForm";
 import { PrescriberList } from "@/components/PrescriberList";
 import { PackagingManager } from "@/components/PackagingManager";
 import { Button } from "@/components/ui/button";
-import { Plus, Users, Package } from "lucide-react";
+import { Plus, Users, Package, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,9 +19,24 @@ import { PasswordModal } from "@/components/PasswordModal";
 export default function Cadastros() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showPrescriberPasswordModal, setShowPrescriberPasswordModal] = useState(false);
   const { data: prescribers = [] } = usePrescribers();
-  const { isLocked, verifyPassword } = useProtectedAccess('criar_prescritor');
+  const { isLocked: isPrescriberLocked, verifyPassword: verifyPrescriberPassword } = useProtectedAccess('criar_prescritor');
+  
+  const {
+    isLocked: isPageLocked,
+    isProtected: isPageProtected,
+    showPasswordModal: showPagePasswordModal,
+    setShowPasswordModal: setShowPagePasswordModal,
+    verifyPassword: verifyPagePassword,
+    loading: pageAccessLoading
+  } = useProtectedAccess('cadastros');
+
+  useEffect(() => {
+    if (isPageProtected && isPageLocked && !pageAccessLoading) {
+      setShowPagePasswordModal(true);
+    }
+  }, [isPageProtected, isPageLocked, pageAccessLoading, setShowPagePasswordModal]);
 
   const handleEdit = (id: number) => {
     setEditingId(id);
@@ -29,23 +44,42 @@ export default function Cadastros() {
   };
 
   const handleNewPrescriber = () => {
-    if (isLocked) {
-      setShowPasswordModal(true);
+    if (isPrescriberLocked) {
+      setShowPrescriberPasswordModal(true);
     } else {
       setEditingId(null);
       setIsDialogOpen(true);
     }
   };
 
-  const handlePasswordVerify = async (password: string): Promise<boolean> => {
-    const success = await verifyPassword(password);
+  const handlePrescriberPasswordVerify = async (password: string): Promise<boolean> => {
+    const success = await verifyPrescriberPassword(password);
     if (success) {
-      setShowPasswordModal(false);
+      setShowPrescriberPasswordModal(false);
       setEditingId(null);
       setIsDialogOpen(true);
     }
     return success;
   };
+
+  if (pageAccessLoading) {
+    return (
+      <div className="container py-10 max-w-screen-2xl flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (isPageProtected && isPageLocked) {
+    return (
+      <PasswordModal
+        isOpen={showPagePasswordModal}
+        onClose={() => window.history.back()}
+        onVerify={verifyPagePassword}
+        title="Digite a senha para acessar Cadastros"
+      />
+    );
+  }
 
   const handleSuccess = () => {
     setIsDialogOpen(false);
@@ -107,9 +141,9 @@ export default function Cadastros() {
       </Tabs>
 
       <PasswordModal
-        isOpen={showPasswordModal}
-        onClose={() => setShowPasswordModal(false)}
-        onVerify={handlePasswordVerify}
+        isOpen={showPrescriberPasswordModal}
+        onClose={() => setShowPrescriberPasswordModal(false)}
+        onVerify={handlePrescriberPasswordVerify}
         title="Digite a senha para criar um novo prescritor."
       />
     </div>
