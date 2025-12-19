@@ -1,0 +1,165 @@
+# CORREÇÃO URGENTE: PDF Vindo Vazio/Errado
+
+## Problema Identificado
+
+- A tabela de **Relatórios Financeiros** mostra os dados CORRETOS:
+  - VITOR FRAUCHES: R$ 20.882,56 | Desconto: R$ 2.088,26 | Saldo: R$ 2.088,26
+  
+- Mas o **PDF baixado** vem ERRADO/VAZIO:
+  - VITOR FRAUCHES: CONVERSÃO 0.00%
+  - Total Efetivado: R$ 0,00
+  - Saldo: R$ 0,00
+
+---
+
+## Diagnóstico
+
+O problema está na **geração do PDF**. Os dados estão sendo salvos corretamente no banco, mas na hora de gerar o PDF:
+
+1. Não está buscando os pedidos corretos do banco, OU
+2. Está filtrando errado (talvez por data/mês), OU
+3. Está usando dados vazios em vez dos dados salvos
+
+---
+
+## Verificar no Backend
+
+### Rota de download do PDF (provavelmente `/api/reports/:id/pdf`):
+```typescript
+// VERIFICAR se está buscando os dados corretos
+
+app.get('/api/reports/:id/pdf', async (req, res) => {
+  const { id } = req.params;
+  
+  // 1. Buscar o relatório
+  const report = await db.get('SELECT * FROM reports WHERE id = ?', [id]);
+  
+  console.log('📊 Report encontrado:', report);  // DEBUG
+  
+  if (!report) {
+    return res.status(404).json({ error: 'Relatório não encontrado' });
+  }
+  
+  // 2. Buscar o prescritor
+  const prescriber = await db.get(
+    'SELECT * FROM prescribers WHERE id = ?', 
+    [report.prescriber_id]
+  );
+  
+  console.log('👤 Prescritor:', prescriber);  // DEBUG
+  
+  // 3. Buscar os pedidos do CSV vinculados a este relatório
+  const orders = await db.all(
+    'SELECT * FROM csv_orders WHERE report_id = ?',
+    [report.id]
+  );
+  
+  console.log('📦 Pedidos encontrados:', orders.length);  // DEBUG
+  console.log('📦 Pedidos:', orders);  // DEBUG
+  
+  // ⚠️ PROBLEMA PODE ESTAR AQUI:
+  // - orders está vazio?
+  // - report_id está correto?
+  // - Está buscando da tabela certa (csv_orders vs orders)?
+  
+  // 4. Separar efetivados e não efetivados
+  const efetivados = orders.filter(o => o.status === 'Efetivado');
+  const naoEfetivados = orders.filter(o => o.status === 'Não efetivado');
+  
+  console.log('✅ Efetivados:', efetivados.length);  // DEBUG
+  console.log('❌ Não efetivados:', naoEfetivados.length);  // DEBUG
+  
+  // 5. Gerar PDF com os dados corretos
+  const pdfBuffer = generatePDF({
+    prescriber,
+    effectiveOrders: efetivados,
+    nonEffectiveOrders: naoEfetivados,
+    conversionRate: report.conversion_rate,
+    totalEffective: report.total_effective_value,
+    commission: report.commission_value,
+    expenses: report.expenses || 0,
+    finalBalance: report.final_balance
+  });
+  
+  // ... enviar PDF
+});
+```
+
+---
+
+## Possíveis Causas e Soluções
+
+### Causa 1: Pedidos não estão sendo salvos com report_id
+```typescript
+// Ao processar CSV, verificar se está salvando o report_id:
+
+// ERRADO (sem report_id):
+await db.run(`
+  INSERT INTO csv_orders (prescriber_id, order_date, status, net_value, patient)
+  VALUES (?, ?, ?, ?, ?)
+`);
+
+// CORRETO (com report_id):
+await db.run(`
+  INSERT INTO csv_orders (report_id, prescriber_id, order_date, status, net_value, patient)
+  VALUES (?, ?, ?, ?, ?, ?)
+`, [reportId, prescriberId, ...]);
+```
+
+### Causa 2: Buscando da tabela errada
+```typescript
+// ERRADO (tabela errada):
+const orders = await db.all('SELECT * FROM orders WHERE report_id = ?', [id]);
+
+// CORRETO (tabela certa):
+const orders = await db.all('SELECT * FROM csv_orders WHERE report_id = ?', [id]);
+```
+
+### Causa 3: Filtro de status errado
+```typescript
+// ERRADO (comparando com valor errado):
+const efetivados = orders.filter(o => o.status === 'Aprovado');
+
+// CORRETO (comparando com valor salvo):
+const efetivados = orders.filter(o => o.status === 'Efetivado');
+
+// OU buscar direto do banco:
+const efetivados = await db.all(`
+  SELECT * FROM csv_orders 
+  WHERE report_id = ? AND status = 'Efetivado'
+`, [reportId]);
+```
+
+### Causa 4: PDF usando dados do relatório em vez dos pedidos
+```typescript
+// ERRADO (usando só totais salvos, sem pedidos):
+generatePDF({
+  effectiveOrders: [],  // VAZIO!
+  totalEffective: report.total_effective_value,  // Valor existe mas sem detalhes
+});
+
+// CORRETO (buscando pedidos reais):
+const orders = await db.all('SELECT * FROM csv_orders WHERE report_id = ?', [id]);
+generatePDF({
+  effectiveOrders: orders.filter(o => o.status === 'Efetivado'),
+  // ...
+});
+```
+
+---
+
+## Ação Recomendada
+
+1. Adicionar `console.log` em cada etapa da rota de download do PDF
+2. Verificar no terminal do Replit o que está sendo logado
+3. Identificar onde os dados estão se perdendo
+4. Corrigir a query ou lógica problemática
+
+---
+
+## Arquivos de Referência
+
+- **Print da tela:** Mostra dados CORRETOS na tabela
+- **PDF gerado:** `Relatorio_VITOR_FRAUCHES_122025__1_.pdf` - ERRADO/VAZIO
+
+O Replit deve comparar os dois e identificar por que o PDF não está usando os mesmos dados que aparecem na tabela.

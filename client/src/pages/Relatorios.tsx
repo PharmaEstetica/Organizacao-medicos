@@ -140,12 +140,12 @@ export default function Relatorios() {
       foot: effectiveFooter,
       theme: 'grid',
       headStyles: {
-        fillColor: [230, 208, 222],
+        fillColor: [220, 190, 210],
         textColor: [0, 0, 0],
         fontStyle: 'bold',
         fontSize: 9,
         cellPadding: 4,
-        lineColor: [180, 160, 175],
+        lineColor: [200, 160, 185],
         lineWidth: 0.5,
       },
       bodyStyles: {
@@ -202,12 +202,12 @@ export default function Relatorios() {
             foot: nonEffectiveFooter,
             theme: 'grid',
             headStyles: {
-                fillColor: [230, 208, 222],
+                fillColor: [220, 190, 210],
                 textColor: [0, 0, 0],
                 fontStyle: 'bold',
                 fontSize: 9,
                 cellPadding: 4,
-                lineColor: [180, 160, 175],
+                lineColor: [200, 160, 185],
                 lineWidth: 0.5,
             },
             bodyStyles: {
@@ -265,8 +265,8 @@ export default function Relatorios() {
 
         if (prescriberOrders.length === 0) continue;
 
-        const effectiveOrders = prescriberOrders.filter(o => o.status === 'Aprovado');
-        const nonEffectiveOrders = prescriberOrders.filter(o => o.status !== 'Aprovado');
+        const effectiveOrders = prescriberOrders.filter(o => o.status === 'Efetivado');
+        const nonEffectiveOrders = prescriberOrders.filter(o => o.status !== 'Efetivado');
         
         const totalEffectiveValue = effectiveOrders.reduce((sum, o) => sum + parseFloat(o.netValue), 0);
         const commissionRate = parseFloat(prescriber.commissionPercentage);
@@ -320,8 +320,8 @@ export default function Relatorios() {
                (o.prescriberName || '').toLowerCase() === prescriber.name.toLowerCase();
     });
 
-    const effectiveOrders = prescriberOrders.filter(o => o.status === 'Aprovado');
-    const nonEffectiveOrders = prescriberOrders.filter(o => o.status !== 'Aprovado');
+    const effectiveOrders = prescriberOrders.filter(o => o.status === 'Efetivado');
+    const nonEffectiveOrders = prescriberOrders.filter(o => o.status !== 'Efetivado');
 
     const expenses = parseFloat(report.expenses) || 0;
 
