@@ -246,7 +246,7 @@ export function FormulaForm({ open, onOpenChange, editingFormula, onEditComplete
                           <AvatarFallback className="text-[10px]">{p.name[0]}</AvatarFallback>
                         </Avatar>
                         <span className="text-sm">{p.name}</span>
-                        <span className="text-xs text-muted-foreground ml-auto">({p.commissionPercentage}%)</span>
+                        <span className="text-xs text-muted-foreground ml-auto">{p.specialty}</span>
                       </label>
                     ))}
                   </div>

@@ -1,0 +1,203 @@
+# CORREÇÕES - LOTE
+
+## CORREÇÃO 1: Download de Documentos Anexados
+
+### Problema
+- Usuário consegue fazer upload de documentos (PDF, Word, Excel, TXT)
+- Mas NÃO consegue fazer download dos arquivos anexados
+- O arquivo aparece na lista mas não é clicável/baixável
+
+### Solução
+Tornar o nome do arquivo clicável para download, e adicionar ícone de download.
+
+### Antes (atual):
+```
+DOCUMENTOS ANEXADOS
+
+📄 SKOPIA__WORD_PREPARO_...                    ×
+   (não clicável, só mostra o nome)
+```
+
+### Depois (corrigido):
+```
+DOCUMENTOS ANEXADOS
+
+📄 SKOPIA__WORD_PREPARO_...        ⬇️    ×
+   ↑ clicável para download       ↑ botão download
+```
+
+### Implementação Frontend
+```tsx
+// Componente de lista de documentos anexados
+
+interface AttachedDocument {
+  id: number;
+  filename: string;
+  filepath: string;
+  filesize: number;
+  mimetype: string;
+}
+
+function DocumentList({ documents, onRemove }: { 
+  documents: AttachedDocument[]; 
+  onRemove: (id: number) => void;
+}) {
+  
+  const handleDownload = async (doc: AttachedDocument) => {
+    try {
+      const response = await fetch(`/api/documents/${doc.id}/download`);
+      const blob = await response.blob();
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert('Erro ao baixar o arquivo. Tente novamente.');
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium text-gray-700">DOCUMENTOS ANEXADOS</p>
+      
+      {documents.map((doc) => (
+        <div 
+          key={doc.id} 
+          className="flex items-center justify-between p-2 bg-gray-50 rounded border"
+        >
+          <button
+            onClick={() => handleDownload(doc)}
+            className="flex items-center gap-2 text-left hover:text-blue-600 hover:underline flex-1 min-w-0"
+          >
+            <FileText size={18} className="text-gray-500 flex-shrink-0" />
+            <span className="truncate text-sm">{doc.filename}</span>
+          </button>
+          
+          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+            <button
+              onClick={() => handleDownload(doc)}
+              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+              title="Baixar arquivo"
+            >
+              <Download size={16} />
+            </button>
+            
+            <button
+              onClick={() => onRemove(doc.id)}
+              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+              title="Remover arquivo"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+### Backend - Rota de Download
+```typescript
+// GET /api/documents/:id/download
+
+app.get('/api/documents/:id/download', async (req, res) => {
+  const { id } = req.params;
+  
+  const doc = await db.get('SELECT * FROM documents WHERE id = ?', [id]);
+  
+  if (!doc) {
+    return res.status(404).json({ error: 'Documento não encontrado' });
+  }
+  
+  const filePath = path.join(__dirname, '../uploads/documents', doc.filepath);
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Arquivo não encontrado' });
+  }
+  
+  res.setHeader('Content-Disposition', `attachment; filename="${doc.filename}"`);
+  res.setHeader('Content-Type', doc.mimetype || 'application/octet-stream');
+  
+  fs.createReadStream(filePath).pipe(res);
+});
+```
+
+---
+
+## CORREÇÃO 2: Remover "%" na Área de Fórmulas
+
+### Problema
+- Na página de Fórmulas, ao lado do nome do médico aparece a porcentagem: `BRUNO FRAUCHES SOUZA (10.00%)`
+- A porcentagem só deve aparecer na área de **Cadastros**, não em Fórmulas
+
+### Antes (atual):
+```
+minoxidil spray
+SPARY
+
+Médicos vinculados:
+👤 BRUNO FRAUCHES SOUZA (10.00%)    ← REMOVER ISSO
+
+Minoxiil utopico 5%
+Cafeina 2%
+```
+
+### Depois (corrigido):
+```
+minoxidil spray
+SPARY
+
+Médicos vinculados:
+👤 BRUNO FRAUCHES SOUZA             ← SEM PORCENTAGEM
+
+Minoxiil utopico 5%
+Cafeina 2%
+```
+
+### Onde mudar
+
+No componente que renderiza o card de fórmula (provavelmente `FormulaCard.tsx` ou similar):
+```tsx
+// ANTES (errado)
+<span>
+  {prescriber.name} ({prescriber.commission_percentage}%)
+</span>
+
+// DEPOIS (correto)
+<span>
+  {prescriber.name}
+</span>
+```
+
+### Locais para verificar e corrigir:
+
+1. **Lista de Fórmulas** (`/formulas`) - Card de cada fórmula
+2. **Modal de detalhes da Fórmula** - Se mostrar médicos vinculados
+3. **Busca** - Resultados de fórmulas encontradas
+4. **Diagrama da Fórmula** - Boxes dos médicos vinculados
+
+### Regra:
+
+| Área | Mostrar % ao lado do nome? |
+|------|---------------------------|
+| Cadastros (lista de médicos) | ✅ SIM |
+| Fórmulas (médicos vinculados) | ❌ NÃO |
+| Embalagens (médicos vinculados) | ❌ NÃO |
+| Busca (médicos vinculados) | ❌ NÃO |
+| Diagrama (boxes de médicos) | ❌ NÃO |
+| Pop-up vincular CSV | ✅ SIM (ajuda a escolher) |
+
+---
+
+## Resumo das Correções
+
+| # | Correção | Tipo |
+|---|----------|------|
+| 1 | Download de documentos anexados | Funcionalidade faltando |
+| 2 | Remover % do nome do médico em Fórmulas | Ajuste visual |
