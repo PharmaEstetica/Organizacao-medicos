@@ -6,17 +6,8 @@ import { Input } from "@/components/ui/input";
 import { useFormulasWithPrescribers, usePrescribers, useDeleteFormula } from "@/hooks/useApi";
 import { FormulaForm } from "@/components/FormulaForm";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { useProtectedAccess } from "@/hooks/useProtectedAccess";
+import { PasswordModal } from "@/components/PasswordModal";
 
 export default function Formulas() {
   const { data: formulas = [] } = useFormulasWithPrescribers();
@@ -25,6 +16,9 @@ export default function Formulas() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingFormula, setEditingFormula] = useState<typeof formulas[0] | null>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const { isLocked, verifyPassword } = useProtectedAccess('excluir');
 
   const getPrescriberName = (id: number | null) => {
     if (!id) return "Nenhum";
@@ -34,6 +28,25 @@ export default function Formulas() {
   const handleEdit = (formula: typeof formulas[0]) => {
     setEditingFormula(formula);
     setIsFormOpen(true);
+  };
+
+  const handleDeleteClick = (formulaId: number) => {
+    if (isLocked) {
+      setPendingDeleteId(formulaId);
+      setShowPasswordModal(true);
+    } else {
+      deleteFormula.mutate(formulaId);
+    }
+  };
+
+  const handlePasswordVerify = async (password: string): Promise<boolean> => {
+    const success = await verifyPassword(password);
+    if (success && pendingDeleteId) {
+      deleteFormula.mutate(pendingDeleteId);
+      setShowPasswordModal(false);
+      setPendingDeleteId(null);
+    }
+    return success;
   };
 
   const filteredFormulas = formulas.filter(f => 
@@ -80,27 +93,9 @@ export default function Formulas() {
                   <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => handleEdit(formula)}>
                     <Edit2 className="h-3.5 w-3.5" />
                   </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </AlertDialogTrigger>
-                  <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Excluir fórmula?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Esta ação não pode ser desfeita.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteFormula.mutate(formula.id)} className="bg-destructive hover:bg-destructive/90">
-                          Excluir
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(formula.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </CardTitle>
               <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
@@ -119,7 +114,6 @@ export default function Formulas() {
                           <AvatarFallback className="text-[8px]">{p.name[0]}</AvatarFallback>
                         </Avatar>
                         <span>{p.name}</span>
-                        <span className="text-muted-foreground">({p.commissionPercentage}%)</span>
                       </div>
                     ))}
                   </div>
@@ -149,6 +143,13 @@ export default function Formulas() {
         onOpenChange={setIsFormOpen} 
         editingFormula={editingFormula}
         onEditComplete={() => setEditingFormula(null)}
+      />
+
+      <PasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => { setShowPasswordModal(false); setPendingDeleteId(null); }}
+        onVerify={handlePasswordVerify}
+        title="Digite a senha para excluir esta fórmula"
       />
     </div>
   );
