@@ -1,0 +1,285 @@
+# AJUSTES NO SISTEMA - LOTE DE CORREÇÕES
+
+## AJUSTE 1: Substituir "Comissão" por "Porcentagem"
+
+### Onde mudar:
+- Cadastro de Prescritores (médicos)
+- Pop-up de vinculação do CSV
+- Qualquer lugar que apareça "comissão"
+
+### Antes:
+```
+Porcentagem de comissão *
+┌─────────────────────┐
+│ 10                  │
+└─────────────────────┘
+```
+
+### Depois:
+```
+Porcentagem (%) *
+┌─────────────────────┐
+│ 10                  │
+└─────────────────────┘
+```
+
+### No banco de dados:
+- Manter nome da coluna `commission_percentage` (não precisa mudar)
+- Apenas mudar o LABEL na interface
+
+---
+
+## AJUSTE 2: Senha para Criar Novo Médico
+
+### Comportamento:
+- Ao clicar em "+ Novo Prescritor" ou "Cadastrar Médico"
+- Abre modal de senha ANTES de abrir o formulário
+- Usar o mesmo sistema de senha das Configurações
+
+### Adicionar na tabela settings:
+```sql
+INSERT INTO settings (setting_key, setting_value) VALUES
+  ('create_prescriber_protected', 'true'),
+  ('create_prescriber_password', 'medico123');
+```
+
+### Na página de Configurações, adicionar nova seção:
+```
+Criar Novos Médicos
+┌──────────────────────────────────────────────────────────┬────────┐
+│ Exigir senha para criar novo médico                      │ [ON]   │
+└──────────────────────────────────────────────────────────┴────────┘
+Senha: ┌────────────────────────────┐
+       │ ••••••••••                 │
+       └────────────────────────────┘
+```
+
+### Fluxo:
+```
+1. Usuário clica em "+ Novo Prescritor"
+           ↓
+2. Modal de senha aparece
+           ↓
+3. Senha correta → Abre formulário de cadastro
+   Senha errada → Mensagem de erro, não abre
+```
+
+---
+
+## AJUSTE 3: "Tipo" → "Fórmula Farmacêutica" nas Embalagens
+
+### Onde mudar:
+- Formulário de cadastro de embalagem
+- Lista de embalagens
+- Modal de edição de embalagem
+
+### Antes:
+```
+Tipo
+┌─────────────────────────────────────┐
+│ KIT POTE PRATA 60 CAP               │
+└─────────────────────────────────────┘
+```
+
+### Depois:
+```
+Fórmula Farmacêutica
+┌─────────────────────────────────────┐
+│ Creme Facial                        │
+└─────────────────────────────────────┘
+```
+
+### No banco de dados:
+- Renomear coluna `type` para `pharmaceutical_form` na tabela `packaging` (ou manter e só mudar label)
+- Exemplos de valores: "Creme Facial", "Cápsula", "Solução Oral", "Pomada", "Gel"
+
+---
+
+## AJUSTE 4: Campo de Texto Livre nas Embalagens
+
+### Adicionar novo campo no formulário de embalagens:
+```
+Fórmula Farmacêutica
+┌─────────────────────────────────────┐
+│ Creme Facial                        │
+└─────────────────────────────────────┘
+
+Capacidade
+┌─────────────────────────────────────┐
+│ 60 CAP                              │
+└─────────────────────────────────────┘
+
+Especificações do Rótulo (opcional)              ← NOVO CAMPO
+┌─────────────────────────────────────────────────────────────┐
+│ Ex: Formulações específicas, instruções de uso,             │
+│ informações adicionais para o rótulo...                     │
+│                                                             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### No banco de dados:
+```sql
+ALTER TABLE packaging ADD COLUMN label_specifications TEXT;
+```
+
+### Características:
+- Campo tipo `textarea` (múltiplas linhas)
+- Opcional (não obrigatório)
+- Placeholder: "Ex: Formulações específicas, instruções de uso, informações adicionais para o rótulo..."
+
+---
+
+## AJUSTE 5: Editar Fórmulas + Vincular a Múltiplos Médicos
+
+### 5.1 Adicionar botão de editar na lista de fórmulas:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Minoxidil Tópico 5%                                             │
+│ Médico: Dr. Bruno Frauches                                      │
+│                                                      ✏️    🗑️   │  ← Adicionar ícone de lápis
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 5.2 Mudar relação Fórmula ↔ Médico de 1:1 para N:N
+
+#### Antes (1 fórmula = 1 médico):
+```sql
+CREATE TABLE formulas (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  prescriber_id INTEGER,  -- apenas 1 médico
+  ...
+);
+```
+
+#### Depois (1 fórmula = vários médicos):
+```sql
+-- Remover prescriber_id da tabela formulas
+CREATE TABLE formulas (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  description TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Nova tabela de relacionamento N:N
+CREATE TABLE formula_prescribers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  formula_id INTEGER NOT NULL,
+  prescriber_id INTEGER NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (formula_id) REFERENCES formulas(id) ON DELETE CASCADE,
+  FOREIGN KEY (prescriber_id) REFERENCES prescribers(id) ON DELETE CASCADE,
+  UNIQUE(formula_id, prescriber_id)  -- Evitar duplicatas
+);
+```
+
+### 5.3 No formulário de fórmula, permitir selecionar MÚLTIPLOS médicos:
+```
+Vincular a Médicos *
+┌─────────────────────────────────────────────────────────────┐
+│ ☑ Dr. Bruno Frauches Souza (10%)                            │
+│ ☑ Dra. Maria Silva (15%)                                    │
+│ ☐ Dr. João Santos (8%)                                      │
+│ ☐ Dra. Ana Costa (12%)                                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Ou usar componente de multi-select com tags:
+```
+Médicos Vinculados *
+┌─────────────────────────────────────────────────────────────┐
+│ [Dr. Bruno Frauches ×] [Dra. Maria Silva ×]    Adicionar ▼  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## AJUSTE 6: Busca com Médicos Vinculados + Diagrama
+
+### 6.1 Resultado da busca deve mostrar médicos vinculados:
+```
+🔍 Buscar: "minoxidil"
+
+┌─────────────────────────────────────────────────────────────────┐
+│ 🧪 Minoxidil Tópico 5%                                          │
+│                                                                 │
+│ Médicos vinculados:                                             │
+│ ┌──────┐ ┌──────┐ ┌──────┐                                      │
+│ │[foto]│ │[foto]│ │[foto]│                                      │
+│ │Bruno │ │Maria │ │João  │                                      │
+│ └──────┘ └──────┘ └──────┘                                      │
+│                                                                 │
+│                                        [ Ver Detalhes ]         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 6.2 Ao clicar em "Ver Detalhes" ou na fórmula:
+
+Abrir modal/página com:
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Minoxidil Tópico 5%                                                    [X]  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────┐    ┌─────────────────────────────────┐ │
+│  │                                 │    │  Médicos Vinculados             │ │
+│  │  📋 FORMULAÇÃO                  │    │                                 │ │
+│  │                                 │    │  ┌──────────┐                   │ │
+│  │  • Minoxidil 5%                 │    │  │  [foto]  │                   │ │
+│  │  • Propilenoglicol qsp          │    │  │  Dr. Bruno Frauches          │ │
+│  │  • Água purificada              │    │  │  Dermatologista              │ │
+│  │  • Álcool 70%                   │    │  │  CRM 12345                   │ │
+│  │                                 │    │  └──────────┘                   │ │
+│  │  Uso: Aplicar 2x ao dia         │    │                                 │ │
+│  │                                 │    │  ┌──────────┐                   │ │
+│  │                                 │    │  │  [foto]  │                   │ │
+│  │                                 │    │  │  Dra. Maria Silva            │ │
+│  │                                 │    │  │  Tricologista                │ │
+│  │                                 │    │  │  CRM 67890                   │ │
+│  │                                 │    │  └──────────┘                   │ │
+│  │                                 │    │                                 │ │
+│  └─────────────────────────────────┘    └─────────────────────────────────┘ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 6.3 Layout sugerido (lado a lado):
+
+- **Lado esquerdo (60%)**: Diagrama/card com a formulação completa
+- **Lado direito (40%)**: Lista de médicos vinculados com foto, nome, especialidade e CRM
+
+### 6.4 Se médico não tiver foto:
+
+Mostrar avatar genérico (ícone de usuário)
+
+---
+
+## RESUMO DAS ALTERAÇÕES
+
+| # | Ajuste | Tipo de Mudança |
+|---|--------|-----------------|
+| 1 | "Comissão" → "%" | Label apenas |
+| 2 | Senha para criar médico | Nova funcionalidade (usar sistema existente) |
+| 3 | "Tipo" → "Fórmula Farmacêutica" | Label + coluna |
+| 4 | Campo texto livre embalagens | Nova coluna + campo |
+| 5 | Editar fórmulas + múltiplos médicos | Nova tabela N:N + UI |
+| 6 | Busca com médicos + diagrama | UI nova na busca |
+
+---
+
+## ORDEM DE IMPLEMENTAÇÃO SUGERIDA
+
+1. Ajustes 1, 3, 4 (labels e campos simples)
+2. Ajuste 2 (senha para criar médico)
+3. Ajuste 5 (relacionamento N:N de fórmulas)
+4. Ajuste 6 (busca com diagrama)
+
+---
+
+## ⚠️ ATENÇÃO
+
+- NÃO quebrar funcionalidades existentes
+- Fazer backup do banco antes de alterar estrutura
+- Testar cada ajuste antes de passar para o próximo

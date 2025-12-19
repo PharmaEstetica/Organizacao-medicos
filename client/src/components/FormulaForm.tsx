@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -40,74 +40,141 @@ import {
 } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { usePrescribers, usePackagings, useCreateFormula, usePharmaceuticalForms, useCreatePharmaceuticalForm } from "@/hooks/useApi";
+import { Checkbox } from "@/components/ui/checkbox";
+import { usePrescribers, usePackagings, useCreateFormula, useUpdateFormula, usePharmaceuticalForms, useCreatePharmaceuticalForm, useSetFormulaPrescribers } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { Formula, Prescriber } from "@shared/schema";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const formulaSchema = z.object({
   name: z.string().min(2, "Nome é obrigatório"),
-  prescriberId: z.string(), // We'll handle 'none' as a string value "none" or empty
   packagingId: z.string(),
   pharmaceuticalForm: z.string().min(1, "Forma farmacêutica é obrigatória"),
   content: z.string().min(10, "A fórmula deve ter pelo menos 10 caracteres"),
 });
 
+interface FormulaWithPrescribers extends Formula {
+  prescribers?: Prescriber[];
+}
+
 interface FormulaFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  editingFormula?: FormulaWithPrescribers | null;
+  onEditComplete?: () => void;
 }
 
-export function FormulaForm({ open, onOpenChange }: FormulaFormProps) {
+export function FormulaForm({ open, onOpenChange, editingFormula, onEditComplete }: FormulaFormProps) {
   const { data: prescribers = [] } = usePrescribers();
   const { data: packagings = [] } = usePackagings();
   const { data: pharmaceuticalForms = [] } = usePharmaceuticalForms();
   const createFormula = useCreateFormula();
+  const updateFormula = useUpdateFormula();
   const createPharmaceuticalForm = useCreatePharmaceuticalForm();
+  const setFormulaPrescribers = useSetFormulaPrescribers();
   const { toast } = useToast();
   const [openCombobox, setOpenCombobox] = useState(false);
+  const [selectedPrescriberIds, setSelectedPrescriberIds] = useState<number[]>([]);
+
+  const isEditing = !!editingFormula;
 
   const form = useForm<z.infer<typeof formulaSchema>>({
     resolver: zodResolver(formulaSchema),
     defaultValues: {
       name: "",
-      prescriberId: "none",
       packagingId: "none",
       pharmaceuticalForm: "",
       content: "",
     },
   });
 
-  const onSubmit = (values: z.infer<typeof formulaSchema>) => {
+  useEffect(() => {
+    if (editingFormula) {
+      form.reset({
+        name: editingFormula.name,
+        packagingId: editingFormula.packagingId?.toString() || "none",
+        pharmaceuticalForm: editingFormula.pharmaceuticalForm,
+        content: editingFormula.content,
+      });
+      setSelectedPrescriberIds(editingFormula.prescribers?.map(p => p.id) || []);
+    } else {
+      form.reset({
+        name: "",
+        packagingId: "none",
+        pharmaceuticalForm: "",
+        content: "",
+      });
+      setSelectedPrescriberIds([]);
+    }
+  }, [editingFormula, form]);
+
+  const handleClose = () => {
+    form.reset();
+    setSelectedPrescriberIds([]);
+    onOpenChange(false);
+    if (onEditComplete) onEditComplete();
+  };
+
+  const togglePrescriber = (id: number) => {
+    setSelectedPrescriberIds(prev => 
+      prev.includes(id) 
+        ? prev.filter(pId => pId !== id)
+        : [...prev, id]
+    );
+  };
+
+  const onSubmit = async (values: z.infer<typeof formulaSchema>) => {
     if (!pharmaceuticalForms.find(f => f.name === values.pharmaceuticalForm)) {
       createPharmaceuticalForm.mutate(values.pharmaceuticalForm);
     }
 
-    createFormula.mutate({
+    const formulaData = {
       name: values.name,
-      prescriberId: values.prescriberId === "none" ? null : parseInt(values.prescriberId),
+      prescriberId: selectedPrescriberIds.length > 0 ? selectedPrescriberIds[0] : null,
       packagingId: values.packagingId === "none" ? null : parseInt(values.packagingId),
       content: values.content,
       pharmaceuticalForm: values.pharmaceuticalForm,
-    }, {
-      onSuccess: () => {
-        toast({
-          title: "Fórmula criada",
-          description: "A nova fórmula foi salva com sucesso.",
-        });
-        form.reset();
-        onOpenChange(false);
-      }
-    });
+    };
+
+    if (isEditing && editingFormula) {
+      updateFormula.mutate({ id: editingFormula.id, data: formulaData }, {
+        onSuccess: () => {
+          setFormulaPrescribers.mutate({ id: editingFormula.id, prescriberIds: selectedPrescriberIds }, {
+            onSuccess: () => {
+              toast({
+                title: "Fórmula atualizada",
+                description: "As alterações foram salvas com sucesso.",
+              });
+              handleClose();
+            }
+          });
+        }
+      });
+    } else {
+      createFormula.mutate(formulaData, {
+        onSuccess: (newFormula) => {
+          if (selectedPrescriberIds.length > 0 && newFormula?.id) {
+            setFormulaPrescribers.mutate({ id: newFormula.id, prescriberIds: selectedPrescriberIds });
+          }
+          toast({
+            title: "Fórmula criada",
+            description: "A nova fórmula foi salva com sucesso.",
+          });
+          handleClose();
+        }
+      });
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Nova Fórmula</DialogTitle>
+          <DialogTitle>{isEditing ? "Editar Fórmula" : "Nova Fórmula"}</DialogTitle>
           <DialogDescription>
-            Cadastre uma nova fórmula farmacêutica.
+            {isEditing ? "Edite os dados da fórmula farmacêutica." : "Cadastre uma nova fórmula farmacêutica."}
           </DialogDescription>
         </DialogHeader>
 
@@ -128,59 +195,76 @@ export function FormulaForm({ open, onOpenChange }: FormulaFormProps) {
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="prescriberId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Parceiro Vinculado</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
-                        {prescribers.map((p) => (
-                          <SelectItem key={p.id} value={p.id.toString()}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
+            <div className="space-y-2">
+              <FormLabel>Médicos Vinculados</FormLabel>
+              <div className="border rounded-md p-3 max-h-[150px] overflow-y-auto">
+                {prescribers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum médico cadastrado</p>
+                ) : (
+                  <div className="space-y-2">
+                    {prescribers.map(p => (
+                      <label 
+                        key={p.id} 
+                        className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded-md transition-colors"
+                      >
+                        <Checkbox 
+                          checked={selectedPrescriberIds.includes(p.id)}
+                          onCheckedChange={() => togglePrescriber(p.id)}
+                        />
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={p.photoUrl || undefined} />
+                          <AvatarFallback className="text-[10px]">{p.name[0]}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm">{p.name}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">({p.commissionPercentage}%)</span>
+                      </label>
+                    ))}
+                  </div>
                 )}
-              />
-
-              <FormField
-                control={form.control}
-                name="packagingId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Embalagem</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhuma</SelectItem>
-                        {packagings.map((p) => (
-                          <SelectItem key={p.id} value={p.id.toString()}>
-                            {p.name} ({p.capacity})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              </div>
+              {selectedPrescriberIds.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedPrescriberIds.map(id => {
+                    const p = prescribers.find(pr => pr.id === id);
+                    if (!p) return null;
+                    return (
+                      <div key={id} className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded text-xs">
+                        {p.name}
+                        <button type="button" onClick={() => togglePrescriber(id)} className="hover:bg-primary/20 rounded-full p-0.5">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
+
+            <FormField
+              control={form.control}
+              name="packagingId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Embalagem</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhuma</SelectItem>
+                      {packagings.map((p) => (
+                        <SelectItem key={p.id} value={p.id.toString()}>
+                          {p.name} ({p.capacity})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
@@ -272,7 +356,7 @@ export function FormulaForm({ open, onOpenChange }: FormulaFormProps) {
             />
 
             <div className="flex justify-end pt-4">
-              <Button type="submit">Salvar Fórmula</Button>
+              <Button type="submit">{isEditing ? "Salvar Alterações" : "Salvar Fórmula"}</Button>
             </div>
           </form>
         </Form>
@@ -280,4 +364,3 @@ export function FormulaForm({ open, onOpenChange }: FormulaFormProps) {
     </Dialog>
   );
 }
-

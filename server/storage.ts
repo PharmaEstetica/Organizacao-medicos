@@ -5,6 +5,7 @@ import {
   prescribers,
   packagings,
   formulas,
+  formulaPrescribers,
   csvOrders,
   manualOrders,
   reports,
@@ -16,6 +17,8 @@ import {
   type InsertPackaging,
   type Formula,
   type InsertFormula,
+  type FormulaPrescribers,
+  type InsertFormulaPrescribers,
   type CsvOrder,
   type InsertCsvOrder,
   type ManualOrder,
@@ -45,6 +48,10 @@ export interface IStorage {
   createFormula(formula: InsertFormula): Promise<Formula>;
   updateFormula(id: number, formula: Partial<InsertFormula>): Promise<Formula | undefined>;
   deleteFormula(id: number): Promise<void>;
+
+  getFormulaPrescribers(formulaId: number): Promise<FormulaPrescribers[]>;
+  setFormulaPrescribers(formulaId: number, prescriberIds: number[]): Promise<void>;
+  getFormulasWithPrescribers(): Promise<(Formula & { prescribers: Prescriber[] })[]>;
 
   getCsvOrders(): Promise<CsvOrder[]>;
   createCsvOrder(order: InsertCsvOrder): Promise<CsvOrder>;
@@ -146,6 +153,38 @@ export class DatabaseStorage implements IStorage {
 
   async deleteFormula(id: number): Promise<void> {
     await db.delete(formulas).where(eq(formulas.id, id));
+  }
+
+  async getFormulaPrescribers(formulaId: number): Promise<FormulaPrescribers[]> {
+    return await db.select().from(formulaPrescribers).where(eq(formulaPrescribers.formulaId, formulaId));
+  }
+
+  async setFormulaPrescribers(formulaId: number, prescriberIds: number[]): Promise<void> {
+    await db.delete(formulaPrescribers).where(eq(formulaPrescribers.formulaId, formulaId));
+    if (prescriberIds.length > 0) {
+      await db.insert(formulaPrescribers).values(
+        prescriberIds.map(prescriberId => ({ formulaId, prescriberId }))
+      );
+    }
+  }
+
+  async getFormulasWithPrescribers(): Promise<(Formula & { prescribers: Prescriber[] })[]> {
+    const allFormulas = await db.select().from(formulas).orderBy(desc(formulas.createdAt));
+    const allPrescribers = await db.select().from(prescribers);
+    const allFormulaPrescribers = await db.select().from(formulaPrescribers);
+    
+    return allFormulas.map(formula => {
+      const linkedPrescriberIds = allFormulaPrescribers
+        .filter(fp => fp.formulaId === formula.id)
+        .map(fp => fp.prescriberId);
+      
+      const linkedPrescribers = allPrescribers.filter(p => 
+        linkedPrescriberIds.includes(p.id) || 
+        (formula.prescriberId === p.id)
+      );
+      
+      return { ...formula, prescribers: linkedPrescribers };
+    });
   }
 
   async getCsvOrders(): Promise<CsvOrder[]> {

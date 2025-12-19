@@ -36,6 +36,10 @@ export interface Formula {
   createdAt: string;
 }
 
+export interface FormulaWithPrescribers extends Formula {
+  prescribers: Prescriber[];
+}
+
 export interface CsvOrder {
   id: number;
   prescriberName: string;
@@ -136,6 +140,7 @@ export const api = {
 
   formulas: {
     getAll: () => apiRequest<Formula[]>("/formulas"),
+    getAllWithPrescribers: () => apiRequest<FormulaWithPrescribers[]>("/formulas-with-prescribers"),
     create: (data: Partial<Formula>) =>
       apiRequest<Formula>("/formulas", {
         method: "POST",
@@ -148,6 +153,13 @@ export const api = {
       }),
     delete: (id: number) =>
       apiRequest<void>(`/formulas/${id}`, { method: "DELETE" }),
+    getPrescribers: (id: number) =>
+      apiRequest<{ formulaId: number; prescriberId: number }[]>(`/formulas/${id}/prescribers`),
+    setPrescribers: (id: number, prescriberIds: number[]) =>
+      apiRequest<void>(`/formulas/${id}/prescribers`, {
+        method: "PUT",
+        body: JSON.stringify({ prescriberIds }),
+      }),
   },
 
   csvOrders: {

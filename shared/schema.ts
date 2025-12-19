@@ -35,6 +35,7 @@ export const packagings = pgTable("packagings", {
   imageUrl: text("image_url"),
   hasSticker: boolean("has_sticker").notNull().default(false),
   stickerSupplier: text("sticker_supplier"),
+  labelSpecifications: text("label_specifications"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -63,6 +64,21 @@ export const insertFormulaSchema = createInsertSchema(formulas).omit({
 
 export type InsertFormula = z.infer<typeof insertFormulaSchema>;
 export type Formula = typeof formulas.$inferSelect;
+
+export const formulaPrescribers = pgTable("formula_prescribers", {
+  id: serial("id").primaryKey(),
+  formulaId: integer("formula_id").references(() => formulas.id, { onDelete: 'cascade' }).notNull(),
+  prescriberId: integer("prescriber_id").references(() => prescribers.id, { onDelete: 'cascade' }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertFormulaPrescribersSchema = createInsertSchema(formulaPrescribers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertFormulaPrescribers = z.infer<typeof insertFormulaPrescribersSchema>;
+export type FormulaPrescribers = typeof formulaPrescribers.$inferSelect;
 
 export const csvOrders = pgTable("csv_orders", {
   id: serial("id").primaryKey(),

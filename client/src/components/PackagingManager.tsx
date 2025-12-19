@@ -3,6 +3,7 @@ import { usePackagings, useCreatePackaging, useDeletePackaging, useUpdatePackagi
 import heic2any from "heic2any";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Package, Trash2, Plus, Image as ImageIcon, Upload, Edit2 } from "lucide-react";
 import { useProtectedAccess } from "@/hooks/useProtectedAccess";
@@ -40,11 +41,12 @@ import { Badge } from "@/components/ui/badge";
 
 const packagingSchema = z.object({
   name: z.string().min(2, "Nome é obrigatório"),
-  type: z.string().min(2, "Tipo é obrigatório"),
+  type: z.string().min(2, "Fórmula farmacêutica é obrigatória"),
   capacity: z.string().min(1, "Capacidade é obrigatória"),
   imageUrl: z.string().optional(),
   hasSticker: z.boolean().default(false),
   stickerSupplier: z.string().optional(),
+  labelSpecifications: z.string().optional(),
 }).refine((data) => {
   if (data.hasSticker && !data.stickerSupplier) {
     return false;
@@ -77,6 +79,7 @@ export function PackagingManager() {
       hasSticker: false,
       stickerSupplier: "",
       imageUrl: "",
+      labelSpecifications: "",
     },
   });
 
@@ -134,6 +137,7 @@ export function PackagingManager() {
       hasSticker: pkg.hasSticker,
       stickerSupplier: pkg.stickerSupplier || "",
       imageUrl: pkg.imageUrl || "",
+      labelSpecifications: (pkg as any).labelSpecifications || "",
     });
     setIsOpen(true);
   };
@@ -279,9 +283,9 @@ export function PackagingManager() {
                     name="type"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Tipo</FormLabel>
+                        <FormLabel>Fórmula Farmacêutica</FormLabel>
                         <FormControl>
-                          <Input placeholder="Ex: Pote" {...field} />
+                          <Input placeholder="Ex: Creme Facial, Cápsula, Gel" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -301,6 +305,24 @@ export function PackagingManager() {
                     )}
                   />
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="labelSpecifications"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Especificações do Rótulo (opcional)</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Ex: Formulações específicas, instruções de uso, informações adicionais para o rótulo..." 
+                          className="min-h-[80px] resize-y"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <div className="bg-muted/20 p-4 rounded-lg border border-border space-y-4">
                     <FormField
@@ -358,7 +380,7 @@ export function PackagingManager() {
                 <TableRow>
                     <TableHead className="w-[80px]">Foto</TableHead>
                     <TableHead>Nome</TableHead>
-                    <TableHead>Tipo</TableHead>
+                    <TableHead>Fórm. Farmacêutica</TableHead>
                     <TableHead>Capacidade</TableHead>
                     <TableHead>Adesivo</TableHead>
                     <TableHead className="text-right">Ações</TableHead>

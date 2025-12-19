@@ -10,19 +10,41 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePrescribers } from "@/hooks/useApi";
+import { useProtectedAccess } from "@/hooks/useProtectedAccess";
+import { PasswordModal } from "@/components/PasswordModal";
 
 export default function Cadastros() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const { data: prescribers = [] } = usePrescribers();
+  const { isLocked, verifyPassword } = useProtectedAccess('criar_prescritor');
 
   const handleEdit = (id: number) => {
     setEditingId(id);
     setIsDialogOpen(true);
+  };
+
+  const handleNewPrescriber = () => {
+    if (isLocked) {
+      setShowPasswordModal(true);
+    } else {
+      setEditingId(null);
+      setIsDialogOpen(true);
+    }
+  };
+
+  const handlePasswordVerify = async (password: string): Promise<boolean> => {
+    const success = await verifyPassword(password);
+    if (success) {
+      setShowPasswordModal(false);
+      setEditingId(null);
+      setIsDialogOpen(true);
+    }
+    return success;
   };
 
   const handleSuccess = () => {
@@ -57,16 +79,14 @@ export default function Cadastros() {
 
         <TabsContent value="prescritores" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="flex justify-end">
+                <Button onClick={handleNewPrescriber}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Prescritor
+                </Button>
                 <Dialog open={isDialogOpen} onOpenChange={(open) => {
                 setIsDialogOpen(open);
                 if (!open) setEditingId(null);
                 }}>
-                <DialogTrigger asChild>
-                    <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Novo Prescritor
-                    </Button>
-                </DialogTrigger>
                 <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                     <DialogTitle>{editingId ? "Editar Prescritor" : "Novo Prescritor"}</DialogTitle>
@@ -85,6 +105,13 @@ export default function Cadastros() {
             <PackagingManager />
         </TabsContent>
       </Tabs>
+
+      <PasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        onVerify={handlePasswordVerify}
+        title="Digite a senha para criar um novo prescritor."
+      />
     </div>
   );
 }

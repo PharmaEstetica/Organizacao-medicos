@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FlaskConical, Plus, Search, User, FileText, Trash2 } from "lucide-react";
+import { FlaskConical, Plus, Search, User, FileText, Trash2, Edit2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useFormulas, usePrescribers, useDeleteFormula } from "@/hooks/useApi";
+import { useFormulasWithPrescribers, usePrescribers, useDeleteFormula } from "@/hooks/useApi";
 import { FormulaForm } from "@/components/FormulaForm";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,15 +19,21 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function Formulas() {
-  const { data: formulas = [] } = useFormulas();
+  const { data: formulas = [] } = useFormulasWithPrescribers();
   const { data: prescribers = [] } = usePrescribers();
   const deleteFormula = useDeleteFormula();
   const [searchTerm, setSearchTerm] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingFormula, setEditingFormula] = useState<typeof formulas[0] | null>(null);
 
   const getPrescriberName = (id: number | null) => {
     if (!id) return "Nenhum";
     return prescribers.find(p => p.id === id)?.name || "Desconhecido";
+  };
+
+  const handleEdit = (formula: typeof formulas[0]) => {
+    setEditingFormula(formula);
+    setIsFormOpen(true);
   };
 
   const filteredFormulas = formulas.filter(f => 
@@ -69,39 +76,55 @@ export default function Formulas() {
             <CardHeader className="pb-3">
               <CardTitle className="flex justify-between items-start gap-2">
                 <span className="text-lg font-bold leading-tight">{formula.name}</span>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                     <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity -mr-2">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </AlertDialogTrigger>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity -mr-2">
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => handleEdit(formula)}>
+                    <Edit2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </AlertDialogTrigger>
                   <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Excluir fórmula?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Esta ação não pode ser desfeita.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => deleteFormula.mutate(formula.id)} className="bg-destructive hover:bg-destructive/90">
-                        Excluir
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir fórmula?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta ação não pode ser desfeita.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteFormula.mutate(formula.id)} className="bg-destructive hover:bg-destructive/90">
+                          Excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </CardTitle>
               <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
                 <span className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded text-xs font-medium uppercase tracking-wider">
                   {formula.pharmaceuticalForm}
                 </span>
-                {formula.prescriberId && (
-                  <span className="flex items-center gap-1 text-xs">
-                    <User className="h-3 w-3" />
-                    {getPrescriberName(formula.prescriberId)}
-                  </span>
-                )}
               </div>
+              {formula.prescribers && formula.prescribers.length > 0 && (
+                <div className="pt-2">
+                  <span className="text-xs text-muted-foreground mb-1 block">Médicos vinculados:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {formula.prescribers.map(p => (
+                      <div key={p.id} className="flex items-center gap-1 bg-muted/50 px-2 py-1 rounded text-xs">
+                        <Avatar className="h-4 w-4">
+                          <AvatarImage src={p.photoUrl || undefined} />
+                          <AvatarFallback className="text-[8px]">{p.name[0]}</AvatarFallback>
+                        </Avatar>
+                        <span>{p.name}</span>
+                        <span className="text-muted-foreground">({p.commissionPercentage}%)</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               <div className="bg-muted/30 p-3 rounded text-sm font-mono text-muted-foreground whitespace-pre-wrap">
@@ -121,7 +144,12 @@ export default function Formulas() {
         )}
       </div>
 
-      <FormulaForm open={isFormOpen} onOpenChange={setIsFormOpen} />
+      <FormulaForm 
+        open={isFormOpen} 
+        onOpenChange={setIsFormOpen} 
+        editingFormula={editingFormula}
+        onEditComplete={() => setEditingFormula(null)}
+      />
     </div>
   );
 }

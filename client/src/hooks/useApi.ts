@@ -111,6 +111,26 @@ export function useDeleteFormula() {
     mutationFn: api.formulas.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["formulas"] });
+      queryClient.invalidateQueries({ queryKey: ["formulas-with-prescribers"] });
+    },
+  });
+}
+
+export function useFormulasWithPrescribers() {
+  return useQuery({
+    queryKey: ["formulas-with-prescribers"],
+    queryFn: api.formulas.getAllWithPrescribers,
+  });
+}
+
+export function useSetFormulaPrescribers() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, prescriberIds }: { id: number; prescriberIds: number[] }) =>
+      api.formulas.setPrescribers(id, prescriberIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["formulas"] });
+      queryClient.invalidateQueries({ queryKey: ["formulas-with-prescribers"] });
     },
   });
 }

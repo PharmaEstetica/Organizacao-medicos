@@ -148,6 +148,34 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/formulas-with-prescribers", async (req, res) => {
+    try {
+      const formulas = await storage.getFormulasWithPrescribers();
+      res.json(formulas);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch formulas with prescribers" });
+    }
+  });
+
+  app.get("/api/formulas/:id/prescribers", async (req, res) => {
+    try {
+      const prescribers = await storage.getFormulaPrescribers(Number(req.params.id));
+      res.json(prescribers);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch formula prescribers" });
+    }
+  });
+
+  app.put("/api/formulas/:id/prescribers", async (req, res) => {
+    try {
+      const { prescriberIds } = req.body;
+      await storage.setFormulaPrescribers(Number(req.params.id), prescriberIds || []);
+      res.status(200).json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update formula prescribers" });
+    }
+  });
+
   app.get("/api/csv-orders", async (req, res) => {
     try {
       const orders = await storage.getCsvOrders();

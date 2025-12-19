@@ -363,7 +363,7 @@ export function CSVUpload({ onReportGenerated }: CSVUploadProps) {
           <DialogHeader>
             <DialogTitle>Vincular CSV ao Cadastro</DialogTitle>
             <DialogDescription>
-              Selecione o prescritor para calcular a comissão:
+              Selecione o prescritor para calcular a porcentagem:
             </DialogDescription>
           </DialogHeader>
 
