@@ -318,7 +318,7 @@ export function PackagingManager() {
               Nova Embalagem
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingPackaging ? 'Editar Embalagem' : 'Cadastrar Embalagem'}</DialogTitle>
               <DialogDescription>{editingPackaging ? 'Atualize as informações da embalagem.' : 'Adicione uma nova opção de embalagem.'}</DialogDescription>
