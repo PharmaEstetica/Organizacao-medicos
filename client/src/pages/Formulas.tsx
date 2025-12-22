@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FlaskConical, Plus, Search, User, FileText, Trash2, Edit2 } from "lucide-react";
+import { FlaskConical, Plus, Search, User, FileText, Trash2, Edit2, Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useFormulasWithPrescribers, usePrescribers, useDeleteFormula } from "@/hooks/useApi";
+import { useFormulasWithPrescribers, usePrescribers, useDeleteFormula, usePackagings } from "@/hooks/useApi";
 import { FormulaForm } from "@/components/FormulaForm";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useProtectedAccess } from "@/hooks/useProtectedAccess";
@@ -12,6 +12,7 @@ import { PasswordModal } from "@/components/PasswordModal";
 export default function Formulas() {
   const { data: formulas = [] } = useFormulasWithPrescribers();
   const { data: prescribers = [] } = usePrescribers();
+  const { data: packagings = [] } = usePackagings();
   const deleteFormula = useDeleteFormula();
   const [searchTerm, setSearchTerm] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -23,6 +24,12 @@ export default function Formulas() {
   const getPrescriberName = (id: number | null) => {
     if (!id) return "Nenhum";
     return prescribers.find(p => p.id === id)?.name || "Desconhecido";
+  };
+
+  const getPackagingName = (packagingId: number | null) => {
+    if (!packagingId) return null;
+    const pkg = packagings.find(p => p.id === packagingId);
+    return pkg ? `${pkg.name} ${pkg.capacity}` : null;
   };
 
   const handleEdit = (formula: typeof formulas[0]) => {
@@ -98,10 +105,16 @@ export default function Formulas() {
                   </Button>
                 </div>
               </CardTitle>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1 flex-wrap">
                 <span className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded text-xs font-medium uppercase tracking-wider">
                   {formula.pharmaceuticalForm}
                 </span>
+                {getPackagingName(formula.packagingId) && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Package className="h-3 w-3" />
+                    {getPackagingName(formula.packagingId)}
+                  </span>
+                )}
               </div>
               {formula.prescribers && formula.prescribers.length > 0 && (
                 <div className="pt-2">

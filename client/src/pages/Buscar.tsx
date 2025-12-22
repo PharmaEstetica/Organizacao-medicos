@@ -79,6 +79,12 @@ export default function Buscar() {
     );
   };
 
+  const getPackagingName = (packagingId: number | null) => {
+    if (!packagingId) return null;
+    const pkg = packagings.find((p: PackagingWithPrescribers) => p.id === packagingId);
+    return pkg ? `${pkg.name} ${pkg.capacity}` : null;
+  };
+
   const FormulaDiagram = ({ formula }: { formula: FormulaWithPrescribers }) => {
     const components = formula.content.split('+').map((c: string) => c.trim());
     
@@ -88,6 +94,12 @@ export default function Buscar() {
           <div className="w-full max-w-xs bg-primary/10 border border-primary/20 p-4 rounded-lg text-center mb-8 relative">
             <Badge variant="outline" className="mb-2 bg-background">{formula.pharmaceuticalForm}</Badge>
             <h4 className="font-bold text-lg text-primary">{formula.name}</h4>
+            {getPackagingName(formula.packagingId) && (
+              <div className="flex items-center justify-center gap-1.5 mt-2 text-sm text-muted-foreground">
+                <Package className="h-3.5 w-3.5" />
+                <span>{getPackagingName(formula.packagingId)}</span>
+              </div>
+            )}
             <div className="absolute left-1/2 -bottom-8 w-0.5 h-8 bg-border -translate-x-1/2"></div>
           </div>
 
@@ -319,10 +331,16 @@ export default function Buscar() {
                     <CardTitle className="flex justify-between items-start gap-2">
                       <span className="text-lg font-bold leading-tight group-hover:text-primary transition-colors">{formula.name}</span>
                     </CardTitle>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1 flex-wrap">
                       <span className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded text-xs font-medium uppercase tracking-wider">
                         {formula.pharmaceuticalForm}
                       </span>
+                      {getPackagingName(formula.packagingId) && (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Package className="h-3 w-3" />
+                          {getPackagingName(formula.packagingId)}
+                        </span>
+                      )}
                       {formula.prescribers && formula.prescribers.length > 0 && (
                         <span className="flex items-center gap-1 text-xs">
                           <Users className="h-3 w-3" />
