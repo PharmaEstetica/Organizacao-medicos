@@ -373,7 +373,7 @@ export function CSVUpload({ onReportGenerated }: CSVUploadProps) {
               <SelectTrigger data-testid="select-prescriber-csv">
                 <SelectValue placeholder="Selecione um prescritor" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[300px] overflow-y-auto">
                 {prescribers.map(p => (
                   <SelectItem key={p.id} value={p.id.toString()}>
                     {p.name} - {p.commissionPercentage}%
