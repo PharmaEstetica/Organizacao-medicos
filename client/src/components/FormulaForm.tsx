@@ -227,7 +227,7 @@ export function FormulaForm({ open, onOpenChange, editingFormula, onEditComplete
 
             <div className="space-y-2">
               <Label>Médicos Vinculados</Label>
-              <div className="border rounded-md p-3 max-h-[150px] overflow-y-auto">
+              <div className="border rounded-md p-3 max-h-[200px] overflow-y-auto">
                 {prescribers.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhum médico cadastrado</p>
                 ) : (
