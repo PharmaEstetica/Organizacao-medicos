@@ -200,7 +200,7 @@ export function FormulaForm({ open, onOpenChange, editingFormula, onEditComplete
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar Fórmula" : "Nova Fórmula"}</DialogTitle>
           <DialogDescription>
@@ -227,7 +227,7 @@ export function FormulaForm({ open, onOpenChange, editingFormula, onEditComplete
 
             <div className="space-y-2">
               <Label>Médicos Vinculados</Label>
-              <div className="border rounded-md p-3 max-h-48 overflow-y-auto">
+              <div className="border rounded-md p-3 max-h-32 overflow-y-auto">
                 {prescribers.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhum médico cadastrado</p>
                 ) : (
@@ -376,7 +376,7 @@ export function FormulaForm({ open, onOpenChange, editingFormula, onEditComplete
                   <FormControl>
                     <Textarea 
                       placeholder="Digite os componentes e quantidades..." 
-                      className="min-h-[120px]" 
+                      className="min-h-[90px]" 
                       {...field} 
                     />
                   </FormControl>
