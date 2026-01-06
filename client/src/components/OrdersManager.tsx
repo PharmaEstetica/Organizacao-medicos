@@ -140,7 +140,7 @@ export function OrdersManager() {
                               <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
+                          <SelectContent className="max-h-[300px] overflow-y-auto">
                             {prescribers.map(p => (
                               <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
                             ))}
