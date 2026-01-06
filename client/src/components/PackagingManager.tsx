@@ -471,7 +471,7 @@ export function PackagingManager() {
                     <Users className="h-4 w-4" />
                     Médicos Vinculados
                   </Label>
-                  <div className="border rounded-md p-3 max-h-[200px] overflow-y-auto">
+                  <div className="border rounded-md p-3 max-h-48 overflow-y-auto">
                     {prescribers.length === 0 ? (
                       <p className="text-sm text-muted-foreground">Nenhum médico cadastrado</p>
                     ) : (
