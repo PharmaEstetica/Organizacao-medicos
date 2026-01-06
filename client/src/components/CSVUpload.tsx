@@ -162,7 +162,7 @@ export function CSVUpload({ onReportGenerated }: CSVUploadProps) {
     for (const order of parsedOrders) {
       try {
         await createCsvOrder.mutateAsync({
-          prescriberName: order.prescriberName,
+          prescriberName: prescriber.name,
           orderNumbers: order.orderNumbers.join(','),
           orderDate: order.orderDate.toISOString(),
           status: order.status,
