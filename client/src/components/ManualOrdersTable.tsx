@@ -25,7 +25,7 @@ export function ManualOrdersTable({ filterMonth = "all" }: ManualOrdersTableProp
   const { data: orders = [] } = useManualOrders();
   const { data: prescribers = [] } = usePrescribers();
   const deleteOrder = useDeleteManualOrder();
-  const { isLocked, verifyPassword } = useProtectedAccess('excluir');
+  const { isLocked, verifyPassword } = useProtectedAccess('relatorios');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
@@ -166,7 +166,7 @@ export function ManualOrdersTable({ filterMonth = "all" }: ManualOrdersTableProp
         isOpen={showPasswordModal}
         onClose={() => { setShowPasswordModal(false); setPendingDeleteId(null); }}
         onVerify={handlePasswordVerify}
-        title="Digite a senha para excluir este pedido."
+        title="Digite a senha de relatórios para excluir este pedido."
       />
     </>
   );
