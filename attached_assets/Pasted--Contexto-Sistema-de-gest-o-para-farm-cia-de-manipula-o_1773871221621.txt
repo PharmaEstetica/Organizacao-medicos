@@ -1,0 +1,75 @@
+# Contexto
+
+Sistema de gestão para farmácia de manipulação (Node.js + Express + SQLite, hospedado no Replit).
+A área de Relatórios Financeiros gera PDFs de comissão para prescritores a partir de CSVs importados.
+
+No popup "Vincular CSV ao Cadastro", o sistema busca pedidos manuais da tabela `manual_orders`
+para exibir na seção "Pedidos de Parceiros Encontrados" e descontar do saldo final.
+
+**Bug confirmado (com evidência visual):**
+A prescritora TALITA FERRAZ ROMAGNA possui o pedido REQ 87181 (R$ 219,20) com status de
+pagamento = "Pago" na área de Pedidos de Parceiros. Mesmo assim, o popup de vincular CSV
+exibe esse pedido na seção amarela "Pedidos de Parceiros Encontrados" com "Total a descontar:
+R$ 219,20" — ou seja, o sistema está ignorando o status de pagamento e descontando pedidos
+já quitados.
+
+Regra de negócio correta:
+- `status pagamento = "pending"` (Pendente) → deve aparecer como desconto (médico ainda deve)
+- `status pagamento = "paid"` (Pago) → NÃO deve aparecer como desconto (já foi quitado)
+
+Estrutura da tabela `manual_orders`:
+- `prescriber` (nome do prescritor)
+- `valor` (valor do pedido)
+- `data` (data do pedido)
+- `status` (status do pedido: ex: "Aprovado")
+- `payment_status` ou campo equivalente de pagamento (valores: "pending" / "paid")
+
+## Tarefa
+
+Corrigir o filtro que busca pedidos manuais para o relatório, garantindo que apenas pedidos
+com status de pagamento `pending` sejam incluídos no cálculo de desconto e exibidos na
+seção "Pedidos de Parceiros Encontrados" do popup.
+
+### Requisitos
+
+- Localizar no backend a query ou função que busca `manual_orders` para montar o popup
+  "Vincular CSV ao Cadastro" e para calcular o saldo final do relatório
+- Adicionar filtro `WHERE payment_status = 'pending'` (ou o nome real do campo de pagamento)
+  nessa query — verificar o nome exato do campo no schema do banco antes de alterar
+- O cálculo deve seguir: `Saldo = Comissão - SUM(manual_orders WHERE payment_status = 'pending')`
+- Pedidos com payment_status = 'paid' não devem aparecer na seção amarela do popup
+- Pedidos com payment_status = 'paid' não devem aparecer na linha "COMPRAS" do PDF gerado
+- A coluna "Desconto" na tabela de listagem de relatórios deve refletir apenas pedidos `pending`
+
+**Caso concreto para validar o fix:**
+Ao vincular um CSV para TALITA FERRAZ ROMAGNA, o REQ 87181 (R$ 219,20, status Pago) NÃO
+deve aparecer na seção "Pedidos de Parceiros Encontrados". O "Total a descontar" deve ser
+R$ 0,00 (ou não exibir a seção amarela se não houver pedidos pendentes).
+
+### Design / Diretrizes de UI
+
+- Sem alterações visuais no popup nem no PDF
+- Se não houver pedidos `pending` para o prescritor, ocultar ou zerar a seção
+  "Pedidos de Parceiros Encontrados" — comportamento já deve existir, apenas garantir que
+  funcione corretamente com o novo filtro
+
+### Restrições
+
+- NÃO alterar a estrutura da tabela `manual_orders` (sem ALTER TABLE, sem novos campos)
+- NÃO alterar a área de Pedidos de Parceiros (criação, edição, listagem de pedidos manuais)
+- NÃO alterar o fluxo de importação de CSV
+- NÃO alterar o cadastro de prescritores
+- NÃO alterar a tela de login ou qualquer lógica de autenticação
+- Corrigir apenas o filtro/query usado na geração e preview do relatório
+
+### Critérios de Aceite
+
+- [ ] Ao vincular CSV para TALITA FERRAZ ROMAGNA, o REQ 87181 (Pago) NÃO aparece na
+      seção amarela "Pedidos de Parceiros Encontrados"
+- [ ] O "Total a descontar" no popup é R$ 0,00 para prescritores sem pedidos pendentes
+- [ ] Um pedido com status "Pendente" continua aparecendo normalmente como desconto
+- [ ] O PDF gerado não inclui pedidos "Pago" na linha COMPRAS
+- [ ] O saldo final do PDF = Comissão (quando não há pedidos pendentes)
+- [ ] A coluna "Desconto" na tabela de relatórios mostra R$ 0,00 para prescritores sem
+      pedidos pendentes
+- [ ] Nenhuma outra funcionalidade do sistema foi alterada

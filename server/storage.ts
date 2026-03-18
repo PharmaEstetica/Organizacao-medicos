@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, desc, sql, and, gte, lt } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lt, ne, or, isNull } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import {
   prescribers,
@@ -259,7 +259,8 @@ export class DatabaseStorage implements IStorage {
       and(
         eq(manualOrders.prescriberId, prescriberId),
         gte(manualOrders.orderDate, startDate),
-        lt(manualOrders.orderDate, endDate)
+        lt(manualOrders.orderDate, endDate),
+        or(isNull(manualOrders.paymentStatus), ne(manualOrders.paymentStatus, 'paid'))
       )
     );
   }
