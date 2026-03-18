@@ -1,0 +1,68 @@
+# Contexto
+
+Sistema de gestão para farmácia de manipulação (Node.js + Express + SQLite, hospedado no Replit).
+A página de Relatórios Financeiros já possui abas: "Importar CSV" e "Gerar Relatórios".
+O sistema usa tema escuro, Tailwind CSS, estilo clean e moderno consistente em todas as páginas.
+
+O Prompt 1 já foi executado com sucesso:
+- Existe endpoint GET `/api/reports/:id/orders` que retorna pedidos de um relatório
+- Existe endpoint DELETE `/api/reports/:id/orders` que remove pedidos e deleta o CSV
+- Existe campo de senha "Editar Relatórios" salvo nas Configurações
+- O padrão de validação de senha por área já funciona no sistema
+
+## Tarefa
+
+Criar a interface da nova aba "Editar Relatório" na página de Relatórios Financeiros, com
+proteção por senha (padrão já existente), seletor de relatório salvo, listagem de pedidos
+com checkboxes de remoção e modal de confirmação antes de deletar.
+
+### Requisitos
+
+- Adicionar aba "Editar Relatório" na navegação da página, ao lado de "Gerar Relatórios"
+- Ao acessar a aba, exibir proteção por senha seguindo exatamente o padrão visual já
+  existente no sistema (mesmo modal ou campo inline usado nas outras áreas protegidas)
+- Após autenticação correta, exibir:
+  * Dropdown para selecionar qual relatório salvo será editado
+    (mostrar: nome do prescritor + mês de referência)
+  * Ao selecionar, carregar e exibir dois grupos separados:
+    - Seção "Pedidos Efetivados" → pedidos com status "Aprovado"
+    - Seção "Pedidos Não Efetivados" → pedidos com status "No carrinho" ou "Recusado"
+  * Cada pedido exibe: data, status, valor líquido, nome do paciente + checkbox de seleção
+  * Botão "Remover Selecionados" fixo no rodapé da lista — desabilitado enquanto nenhum
+    checkbox estiver marcado
+  * Ao clicar em "Remover Selecionados": exibir modal de confirmação com:
+    - Lista dos pedidos que serão removidos
+    - Aviso em destaque: "O CSV original vinculado será deletado permanentemente"
+    - Botão vermelho "Confirmar Remoção" + botão neutro "Cancelar"
+  * Após confirmação: chamar endpoint DELETE, atualizar listagem, exibir toast de sucesso
+
+### Design / Diretrizes de UI
+
+- Tema escuro, Tailwind CSS, estilo consistente com o restante do sistema
+- Checkboxes visíveis e funcionais em mobile (touch-friendly)
+- Seções "Efetivados" e "Não Efetivados" com cabeçalho claro e separação visual
+- Botão "Remover Selecionados" em vermelho, só ativo com ao menos um item marcado
+- Modal de confirmação direto e objetivo, botão de confirmar em vermelho
+- Toast de sucesso após remoção concluída
+- Se não houver relatórios salvos, exibir mensagem vazia amigável no lugar do dropdown
+
+### Restrições
+
+- NÃO alterar as abas "Importar CSV" e "Gerar Relatórios" existentes
+- NÃO alterar o layout geral da página de Relatórios Financeiros
+- NÃO alterar a página de Configurações
+- NÃO alterar a área de Pedidos de Parceiros, cadastro de prescritores ou login
+- Usar apenas os endpoints criados no Prompt 1, sem criar nova lógica de backend
+
+### Critérios de Aceite
+
+- [ ] Aba "Editar Relatório" aparece na navegação da página de Relatórios
+- [ ] Ao clicar na aba, sistema pede a senha configurada em Configurações
+- [ ] Senha errada bloqueia o acesso; senha correta libera a interface
+- [ ] Dropdown lista os relatórios salvos com prescritor + mês de referência
+- [ ] Ao selecionar um relatório, pedidos efetivados e não efetivados aparecem em seções
+      separadas com checkboxes
+- [ ] Botão "Remover Selecionados" só ativa quando ao menos um checkbox estiver marcado
+- [ ] Modal de confirmação exibe os itens selecionados e aviso sobre deleção do CSV
+- [ ] Após confirmar, pedidos somem da lista e toast de sucesso é exibido
+- [ ] Nenhuma outra aba ou funcionalidade do sistema foi alterada

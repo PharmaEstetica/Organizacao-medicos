@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { CSVUpload } from "@/components/CSVUpload";
+import { EditReportTab } from "@/components/EditReportTab";
 import { useProtectedAccess } from "@/hooks/useProtectedAccess";
 import { PasswordModal } from "@/components/PasswordModal";
 
@@ -369,13 +370,18 @@ export default function Relatorios() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-[400px] mb-8">
+        <TabsList className="grid w-full grid-cols-3 max-w-[560px] mb-8">
           <TabsTrigger value="importar" data-testid="tab-importar">Importar CSV</TabsTrigger>
           <TabsTrigger value="gerar" data-testid="tab-gerar">Gerar Relatórios</TabsTrigger>
+          <TabsTrigger value="editar" data-testid="tab-editar">Editar Relatório</TabsTrigger>
         </TabsList>
 
         <TabsContent value="importar" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <CSVUpload onReportGenerated={handleReportGenerated} />
+        </TabsContent>
+
+        <TabsContent value="editar" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <EditReportTab />
         </TabsContent>
 
         <TabsContent value="gerar" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
