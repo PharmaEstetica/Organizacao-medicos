@@ -333,6 +333,35 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/reports/:id/orders", async (req, res) => {
+    try {
+      const orders = await storage.getReportOrders(Number(req.params.id));
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch report orders" });
+    }
+  });
+
+  app.delete("/api/reports/:id/orders", async (req, res) => {
+    try {
+      const { orderIds, password } = req.body;
+
+      const isValid = await storage.verifyPassword('editar_relatorio', password);
+      if (!isValid) {
+        return res.status(401).json({ error: 'Senha incorreta' });
+      }
+
+      if (!Array.isArray(orderIds) || orderIds.length === 0) {
+        return res.status(400).json({ error: 'Nenhum pedido selecionado' });
+      }
+
+      await storage.deleteSelectedReportOrders(Number(req.params.id), orderIds);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete report orders" });
+    }
+  });
+
   app.get("/api/pharmaceutical-forms", async (req, res) => {
     try {
       const forms = await storage.getPharmaceuticalForms();

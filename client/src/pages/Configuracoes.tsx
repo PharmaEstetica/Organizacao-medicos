@@ -18,6 +18,8 @@ interface SettingsState {
   delete_password: string;
   config_protected: boolean;
   config_password: string;
+  editar_relatorio_protected: boolean;
+  editar_relatorio_password: string;
 }
 
 export default function Configuracoes() {
@@ -39,14 +41,17 @@ export default function Configuracoes() {
     delete_protected: true,
     delete_password: '',
     config_protected: true,
-    config_password: ''
+    config_password: '',
+    editar_relatorio_protected: true,
+    editar_relatorio_password: ''
   });
   
   const [showPasswords, setShowPasswords] = useState({
     relatorios: false,
     cadastros: false,
     delete: false,
-    config: false
+    config: false,
+    editar_relatorio: false
   });
   
   const [saving, setSaving] = useState(false);
@@ -77,7 +82,9 @@ export default function Configuracoes() {
         delete_protected: data.delete_protected === 'true',
         delete_password: '',
         config_protected: data.config_protected === 'true',
-        config_password: ''
+        config_password: '',
+        editar_relatorio_protected: data.editar_relatorio_protected === 'true',
+        editar_relatorio_password: ''
       });
     } catch (error) {
       toast({
@@ -115,7 +122,9 @@ export default function Configuracoes() {
             delete_protected: String(settings.delete_protected),
             delete_password: settings.delete_password,
             config_protected: String(settings.config_protected),
-            config_password: settings.config_password
+            config_password: settings.config_password,
+            editar_relatorio_protected: String(settings.editar_relatorio_protected),
+            editar_relatorio_password: settings.editar_relatorio_password
           }, 
           currentPassword 
         })
@@ -295,6 +304,42 @@ export default function Configuracoes() {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                   >
                     {showPasswords.delete ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4 pb-4 border-b">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-base font-medium">Editar Relatórios</Label>
+                <p className="text-sm text-muted-foreground">Exigir senha para editar e remover pedidos de relatórios</p>
+              </div>
+              <Switch
+                checked={settings.editar_relatorio_protected}
+                onCheckedChange={(v) => setSettings({ ...settings, editar_relatorio_protected: v })}
+                data-testid="switch-editar-relatorio-protected"
+              />
+            </div>
+            {settings.editar_relatorio_protected && (
+              <div className="ml-4 space-y-2">
+                <Label className="text-sm">Senha:</Label>
+                <div className="relative max-w-xs">
+                  <Input
+                    type={showPasswords.editar_relatorio ? 'text' : 'password'}
+                    value={settings.editar_relatorio_password}
+                    onChange={(e) => setSettings({ ...settings, editar_relatorio_password: e.target.value })}
+                    className="pr-10 rounded-sm"
+                    placeholder="Digite a senha"
+                    data-testid="input-editar-relatorio-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswords({ ...showPasswords, editar_relatorio: !showPasswords.editar_relatorio })}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  >
+                    {showPasswords.editar_relatorio ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>

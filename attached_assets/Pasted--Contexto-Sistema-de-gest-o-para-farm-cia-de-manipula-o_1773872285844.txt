@@ -1,0 +1,67 @@
+# Contexto
+
+Sistema de gestão para farmácia de manipulação (Node.js + Express + SQLite, hospedado no Replit).
+A página de Relatórios Financeiros já possui abas: "Importar CSV" e "Gerar Relatórios".
+
+O sistema já possui página de Configurações com padrão visual de proteção por senha:
+toggle ativar/desativar + campo senha com botão mostrar/ocultar + salvo via botão
+"Salvar Configurações" com confirmação por senha atual. Exemplos existentes: Relatórios,
+Cadastros, Excluir Cadastros/Fórmulas, Configurações (esta página).
+
+Os dados de CSV importados ficam salvos no banco SQLite. Quando um relatório é gerado, os
+pedidos do CSV são salvos e usados para montar o PDF.
+
+## Tarefa
+
+Criar o backend para a nova aba "Editar Relatório" na página de Relatórios Financeiros,
+incluindo: novo bloco de senha nas Configurações (padrão idêntico aos existentes), endpoint
+para listar pedidos de um relatório salvo, e endpoint para remover pedidos selecionados
+permanentemente junto com o CSV original.
+
+### Requisitos
+
+- Adicionar novo bloco na página de Configurações seguindo o padrão visual existente:
+  * Toggle para ativar/desativar proteção
+  * Label: "Editar Relatórios"
+  * Descrição: "Exigir senha para editar e remover pedidos de relatórios"
+  * Campo senha com botão mostrar/ocultar, idêntico aos outros blocos
+  * Salvo pelo mesmo botão "Salvar Configurações" já existente com confirmação por senha atual
+
+- Criar endpoint GET `/api/reports/:id/orders` para listar todos os pedidos de um relatório
+  salvo, retornando para cada pedido: número, data, status, valor líquido, paciente
+
+- Criar endpoint DELETE `/api/reports/:id/orders` para remover pedidos selecionados:
+  * Recebe array de IDs dos pedidos a remover
+  * Remove os pedidos selecionados do banco permanentemente
+  * Após remoção, deleta o CSV original vinculado ao relatório
+  * Recalcula e atualiza no banco: total efetivado, comissão, taxa de conversão e saldo final
+  * Valida senha da aba antes de executar — retorna erro 401 se senha incorreta
+
+- Pedidos efetivados (status "Aprovado") e não efetivados ("No carrinho" / "Recusado")
+  podem ser removidos
+
+### Design / Diretrizes de UI
+
+- Sem alterações visuais neste prompt. Apenas backend e o novo bloco nas Configurações.
+
+### Restrições
+
+- NÃO alterar as rotas existentes de geração de relatório
+- NÃO alterar a lógica de importação de CSV existente
+- NÃO alterar o cadastro de prescritores
+- NÃO alterar a tela de login ou autenticação
+- NÃO alterar a área de Pedidos de Parceiros (manual_orders)
+- NÃO criar nova tabela de banco — usar as tabelas existentes de pedidos/relatórios
+- Usar exatamente o mesmo padrão de senha já implementado nas outras áreas protegidas
+
+### Critérios de Aceite
+
+- [ ] Novo bloco "Editar Relatórios" aparece na página de Configurações com toggle e campo
+      senha, idêntico visualmente aos blocos existentes
+- [ ] Campo é salvo corretamente pelo botão "Salvar Configurações"
+- [ ] Endpoint GET retorna lista completa de pedidos (efetivados e não efetivados) do relatório
+- [ ] Endpoint DELETE remove os pedidos selecionados permanentemente do banco
+- [ ] Após remoção, o CSV vinculado é deletado do sistema
+- [ ] Totais do relatório são recalculados corretamente após a remoção
+- [ ] Requisição sem senha correta retorna erro de autenticação
+- [ ] Nenhuma rota ou funcionalidade existente foi alterada

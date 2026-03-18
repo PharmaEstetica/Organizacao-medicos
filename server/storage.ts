@@ -76,6 +76,8 @@ export interface IStorage {
   getReport(id: number): Promise<Report | undefined>;
   createReport(report: InsertReport): Promise<Report>;
   deleteReport(id: number): Promise<void>;
+  getReportOrders(reportId: number): Promise<CsvOrder[]>;
+  deleteSelectedReportOrders(reportId: number, orderIds: number[]): Promise<void>;
 
   getPharmaceuticalForms(): Promise<PharmaceuticalForm[]>;
   createPharmaceuticalForm(form: InsertPharmaceuticalForm): Promise<PharmaceuticalForm>;
@@ -297,6 +299,79 @@ export class DatabaseStorage implements IStorage {
     await db.delete(reports).where(eq(reports.id, id));
   }
 
+  async getReportOrders(reportId: number): Promise<CsvOrder[]> {
+    const report = await this.getReport(reportId);
+    if (!report) return [];
+
+    const prescriber = (await db.select().from(prescribers).where(eq(prescribers.id, report.prescriberId)))[0];
+    if (!prescriber) return [];
+
+    const [month, year] = report.referenceMonth.split('/').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 1);
+
+    return await db.select().from(csvOrders).where(
+      and(
+        sql`LOWER(${csvOrders.prescriberName}) = LOWER(${prescriber.name})`,
+        gte(csvOrders.orderDate, startDate),
+        lt(csvOrders.orderDate, endDate)
+      )
+    );
+  }
+
+  async deleteSelectedReportOrders(reportId: number, orderIds: number[]): Promise<void> {
+    if (orderIds.length === 0) return;
+
+    const report = await this.getReport(reportId);
+    if (!report) return;
+
+    const prescriber = (await db.select().from(prescribers).where(eq(prescribers.id, report.prescriberId)))[0];
+    if (!prescriber) return;
+
+    const [month, year] = report.referenceMonth.split('/').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 1);
+
+    for (const id of orderIds) {
+      await db.delete(csvOrders).where(eq(csvOrders.id, id));
+    }
+
+    const remaining = await db.select().from(csvOrders).where(
+      and(
+        sql`LOWER(${csvOrders.prescriberName}) = LOWER(${prescriber.name})`,
+        gte(csvOrders.orderDate, startDate),
+        lt(csvOrders.orderDate, endDate)
+      )
+    );
+
+    const effectiveOrders = remaining.filter(o => o.status === 'Efetivado');
+    const totalOrders = remaining.length;
+    const effectiveCount = effectiveOrders.length;
+    const totalEffectiveValue = effectiveOrders.reduce((sum, o) => sum + parseFloat(o.netValue), 0);
+    const commissionRate = parseFloat(prescriber.commissionPercentage);
+    const commissionValue = totalEffectiveValue * (commissionRate / 100);
+    const expenses = parseFloat(report.expenses) || 0;
+    const finalBalance = commissionValue - expenses;
+    const conversionRate = totalOrders > 0 ? (effectiveCount / totalOrders) * 100 : 0;
+
+    await db.update(reports).set({
+      totalOrders,
+      effectiveOrders: effectiveCount,
+      conversionRate: conversionRate.toFixed(2),
+      totalEffectiveValue: totalEffectiveValue.toFixed(2),
+      commissionValue: commissionValue.toFixed(2),
+      finalBalance: finalBalance.toFixed(2),
+    }).where(eq(reports.id, reportId));
+
+    await db.delete(csvOrders).where(
+      and(
+        sql`LOWER(${csvOrders.prescriberName}) = LOWER(${prescriber.name})`,
+        gte(csvOrders.orderDate, startDate),
+        lt(csvOrders.orderDate, endDate)
+      )
+    );
+  }
+
   async getPharmaceuticalForms(): Promise<PharmaceuticalForm[]> {
     return await db.select().from(pharmaceuticalForms).orderBy(pharmaceuticalForms.name);
   }
@@ -348,6 +423,8 @@ export class DatabaseStorage implements IStorage {
       { key: 'delete_password', value: hashedPassword },
       { key: 'config_protected', value: 'true' },
       { key: 'config_password', value: hashedPassword },
+      { key: 'editar_relatorio_protected', value: 'true' },
+      { key: 'editar_relatorio_password', value: hashedPassword },
     ];
 
     for (const { key, value } of defaultSettings) {
