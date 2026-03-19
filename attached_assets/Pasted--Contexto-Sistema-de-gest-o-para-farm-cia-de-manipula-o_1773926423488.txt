@@ -1,0 +1,104 @@
+# Contexto
+
+Sistema de gestão para farmácia de manipulação (Node.js + Express + SQLite, hospedado no Replit).
+A página de Relatórios Financeiros possui abas: "Importar CSV" e "Gerar Relatórios".
+Existe uma terceira aba "Editar Relatório" já criada mas que atualmente tenta editar
+relatórios já gerados — essa lógica não funciona e deve ser completamente substituída.
+
+O sistema usa tema claro, Tailwind CSS, estilo clean e moderno. Possui proteção por senha
+configurável na página de Configurações (toggle + campo senha + salvo via "Salvar
+Configurações"). O bloco "Editar Relatórios" já existe nas Configurações.
+
+Fluxo correto que deve ser implementado:
+1. Usuário faz upload do CSV na aba "Editar Relatório"
+2. Sistema processa o CSV e exibe os pedidos em tela (antes de salvar qualquer coisa)
+3. Usuário edita valores e/ou remove pedidos conforme necessário
+4. Usuário clica em "Gerar Relatório" — só então o PDF é gerado com os dados editados
+
+## Tarefa
+
+Substituir completamente o conteúdo da aba "Editar Relatório" por um fluxo de upload de
+CSV com edição inline de valores e remoção de pedidos antes da geração do PDF, protegido
+pela senha já configurada no bloco "Editar Relatórios" das Configurações.
+
+### Requisitos
+
+**Proteção por senha:**
+- Ao acessar a aba, exibir pedido de senha seguindo o padrão visual já existente no sistema
+- Senha correta libera a interface; senha errada bloqueia
+
+**Upload do CSV:**
+- Interface de upload idêntica visualmente à aba "Importar CSV" existente
+- Aceitar CSV com separador `;` e colunas: Nome, Número, Data (DD/MM/AAAA),
+  Status (Aprovado / Recusado / No carrinho), Valor Líquido (R$ 1.234,56), Paciente
+- Após upload, exibir popup "Vincular CSV ao Cadastro" idêntico ao da aba "Importar CSV":
+  * Dropdown para selecionar o prescritor cadastrado (para buscar a % de comissão)
+  * Exibir resumo: total de pedidos, efetivados, não efetivados, taxa de conversão
+  * Exibir pedidos de parceiros encontrados (manual_orders com status `pending` apenas)
+  * Checkbox "Descontar do saldo final"
+  * Botão "Continuar para Edição" (em vez de "Gerar Relatório")
+
+**Tela de edição (após vincular ao cadastro):**
+- Exibir dois grupos de pedidos:
+  * "Pedidos Efetivados" (status Aprovado)
+  * "Pedidos Não Efetivados" (No carrinho / Recusado)
+- Cada pedido exibe em linha: data, status, valor líquido editável, paciente, comissão
+- Campo "Valor Líquido" editável inline com formatação R$ 1.234,56 (aceitar vírgula decimal)
+- Ao alterar valor, recalcular em tempo real:
+  * Comissão individual (novo valor × % do prescritor)
+  * Total efetivado
+  * Comissão total
+  * Saldo final (comissão total - descontos de parceiros pendentes)
+- Campo editado recebe destaque visual (borda colorida) para indicar modificação
+- Cada linha tem ícone/botão de remoção (lixeira) para excluir o pedido da lista
+- Ao remover pedido, totais recalculam imediatamente
+- Painel de resumo fixo ou visível mostrando: Total Efetivado | Comissão | Saldo Final
+  atualizando em tempo real conforme edições e remoções
+
+**Geração do PDF:**
+- Botão "Gerar Relatório" no rodapé da tela de edição
+- Ao clicar, gerar e salvar o relatório usando os dados editados (valores alterados +
+  pedidos restantes após remoções)
+- PDF deve sair com os valores modificados, não os originais do CSV
+- Após gerar, exibir toast de sucesso e limpar a aba para novo upload
+
+### Design / Diretrizes de UI
+
+- Tema claro, Tailwind CSS, estilo idêntico ao restante do sistema
+- Upload com área de drag-and-drop igual à aba "Importar CSV"
+- Popup de vinculação idêntico ao popup já existente em "Importar CSV"
+- Tabela de pedidos clean, linhas zebradas ou com separador sutil
+- Input inline discreto: sem bordas excessivas, natural na linha
+- Campo modificado: borda esquerda colorida (azul ou amarelo)
+- Totais atualizando com transição suave, sem piscar
+- Botão "Gerar Relatório" em destaque (cor primária), fixo no rodapé
+- Mobile-friendly: inputs e botões com tamanho de toque adequado
+
+### Restrições
+
+- NÃO alterar a aba "Importar CSV" existente
+- NÃO alterar a aba "Gerar Relatórios" existente
+- NÃO alterar o fluxo de geração de PDF das outras abas
+- NÃO alterar cadastro de prescritores, login ou autenticação
+- NÃO alterar a área de Pedidos de Parceiros (manual_orders)
+- NÃO alterar a página de Configurações
+- Os dados editados nessa aba NÃO devem interferir nos CSVs ou relatórios de outras abas
+- Pedidos de parceiros (manual_orders) com status `paid` NÃO devem aparecer como desconto
+
+### Critérios de Aceite
+
+- [ ] Ao acessar a aba, sistema pede senha configurada em Configurações
+- [ ] Senha errada bloqueia; senha correta exibe área de upload
+- [ ] Upload aceita CSV com separador `;` e processa corretamente
+- [ ] Popup de vinculação ao cadastro abre igual ao da aba "Importar CSV"
+- [ ] Apenas pedidos de parceiros com status `pending` aparecem como desconto no popup
+- [ ] Após vincular, pedidos efetivados e não efetivados aparecem em seções separadas
+- [ ] Campo "Valor Líquido" é editável inline com formatação brasileira (R$ 1.234,56)
+- [ ] Comissão individual recalcula em tempo real ao editar valor
+- [ ] Total efetivado, comissão total e saldo final atualizam em tempo real
+- [ ] Campo editado recebe destaque visual diferenciado
+- [ ] Botão de remoção remove o pedido da lista e recalcula totais imediatamente
+- [ ] Botão "Gerar Relatório" gera o PDF com os valores editados
+- [ ] Relatório salvo no banco usa os valores modificados, não os do CSV original
+- [ ] Toast de sucesso exibido após gerar; aba limpa para novo upload
+- [ ] Nenhuma outra aba ou funcionalidade do sistema foi alterada
