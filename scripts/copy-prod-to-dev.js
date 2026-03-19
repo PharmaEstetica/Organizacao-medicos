@@ -54,24 +54,47 @@ async function getTables(client) {
   return res.rows.map((r) => r.tablename);
 }
 
-async function getColumns(client, table) {
+async function getColumnMeta(client, table) {
   const res = await client.query(`
-    SELECT column_name
+    SELECT column_name, data_type, udt_name
     FROM information_schema.columns
     WHERE table_schema = 'public'
       AND table_name = $1
     ORDER BY ordinal_position
   `, [table]);
-  return res.rows.map((r) => r.column_name);
+  return res.rows.map((r) => ({
+    name: r.column_name,
+    isJson: r.data_type === "json" || r.data_type === "jsonb" || r.udt_name === "json" || r.udt_name === "jsonb",
+  }));
+}
+
+function sanitizeValue(value, isJson) {
+  if (!isJson) return value;
+  if (value === null || value === undefined) return null;
+  // pg driver already parses jsonb columns into objects — pass through as-is
+  if (typeof value === "object") return value;
+  // value is a raw string — validate it
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "" || trimmed === "null") return null;
+    try {
+      JSON.parse(trimmed);
+      return value; // valid JSON string, let pg handle it
+    } catch {
+      return null; // invalid JSON — convert to NULL
+    }
+  }
+  return value;
 }
 
 async function copyTable(prodClient, devClient, table) {
-  const cols = await getColumns(prodClient, table);
-  if (cols.length === 0) {
+  const colMeta = await getColumnMeta(prodClient, table);
+  if (colMeta.length === 0) {
     console.log(`  ⚠️  ${table}: sem colunas, ignorada.`);
     return 0;
   }
 
+  const cols = colMeta.map((c) => c.name);
   const { rows } = await prodClient.query(`SELECT * FROM "${table}"`);
 
   await devClient.query(`TRUNCATE TABLE "${table}" CASCADE`);
@@ -92,7 +115,10 @@ async function copyTable(prodClient, devClient, table) {
       )
       .join(", ");
 
-    const flatValues = batch.flatMap((row) => cols.map((col) => row[col]));
+    const flatValues = batch.flatMap((row) =>
+      colMeta.map((col) => sanitizeValue(row[col.name], col.isJson))
+    );
+
     await devClient.query(
       `INSERT INTO "${table}" (${quotedCols}) VALUES ${valuePlaceholders}`,
       flatValues
