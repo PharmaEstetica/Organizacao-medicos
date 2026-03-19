@@ -52,7 +52,6 @@ export function EditReportTab() {
     loading: accessLoading,
   } = useProtectedAccess("editar_relatorio");
 
-  const [editPassword, setEditPassword] = useState("");
   const [selectedReportId, setSelectedReportId] = useState<string>("");
   const [orders, setOrders] = useState<CsvOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
@@ -65,14 +64,6 @@ export function EditReportTab() {
       setShowPasswordModal(true);
     }
   }, [isProtected, isLocked, accessLoading, setShowPasswordModal]);
-
-  const handleVerifyWithCapture = async (password: string): Promise<boolean> => {
-    const success = await verifyPassword(password);
-    if (success) {
-      setEditPassword(password);
-    }
-    return success;
-  };
 
   const handleReportChange = async (reportId: string) => {
     setSelectedReportId(reportId);
@@ -121,14 +112,8 @@ export function EditReportTab() {
       const res = await fetch(`/api/reports/${selectedReportId}/orders`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderIds: Array.from(selectedIds), password: editPassword }),
+        body: JSON.stringify({ orderIds: Array.from(selectedIds) }),
       });
-
-      if (res.status === 401) {
-        toast({ title: "Erro", description: "Senha incorreta. Por favor, recarregue a aba.", variant: "destructive" });
-        setShowConfirmModal(false);
-        return;
-      }
 
       if (!res.ok) throw new Error("Falha ao remover pedidos");
 
@@ -174,7 +159,7 @@ export function EditReportTab() {
       <PasswordModal
         isOpen={showPasswordModal}
         onClose={() => setShowPasswordModal(false)}
-        onVerify={handleVerifyWithCapture}
+        onVerify={verifyPassword}
         title="Digite a senha para editar relatórios"
       />
     );

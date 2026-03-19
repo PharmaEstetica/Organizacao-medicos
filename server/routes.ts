@@ -344,12 +344,7 @@ export async function registerRoutes(
 
   app.delete("/api/reports/:id/orders", async (req, res) => {
     try {
-      const { orderIds, password } = req.body;
-
-      const isValid = await storage.verifyPassword('editar_relatorio', password);
-      if (!isValid) {
-        return res.status(401).json({ error: 'Senha incorreta' });
-      }
+      const { orderIds } = req.body;
 
       if (!Array.isArray(orderIds) || orderIds.length === 0) {
         return res.status(400).json({ error: 'Nenhum pedido selecionado' });
