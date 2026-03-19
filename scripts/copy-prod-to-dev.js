@@ -71,15 +71,23 @@ async function getColumnMeta(client, table) {
 function sanitizeValue(value, isJson) {
   if (!isJson) return value;
   if (value === null || value === undefined) return null;
-  // pg driver already parses jsonb columns into objects — pass through as-is
-  if (typeof value === "object") return value;
-  // value is a raw string — validate it
+  // pg parses json/jsonb columns into JS objects automatically.
+  // We must JSON.stringify them back — otherwise pg sends "[object Object]"
+  // to PostgreSQL, which is invalid JSON syntax.
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return null;
+    }
+  }
+  // value is a raw string — validate it before passing through
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (trimmed === "" || trimmed === "null") return null;
     try {
       JSON.parse(trimmed);
-      return value; // valid JSON string, let pg handle it
+      return trimmed; // valid JSON string
     } catch {
       return null; // invalid JSON — convert to NULL
     }
