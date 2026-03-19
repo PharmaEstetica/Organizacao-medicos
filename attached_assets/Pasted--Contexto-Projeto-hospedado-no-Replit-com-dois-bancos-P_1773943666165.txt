@@ -1,0 +1,50 @@
+# Contexto
+
+Projeto hospedado no Replit com dois bancos PostgreSQL nativos do Replit:
+- Production Database (38.44MB) — banco real com todos os dados atuais
+- Development Database (30.83MB) — banco local de desenvolvimento
+
+Quero fazer uma cópia única dos dados do Production para o Development, para ter
+os dados reais disponíveis no ambiente de desenvolvimento.
+
+## Tarefa
+
+Criar um script Node.js que conecte nos dois bancos PostgreSQL do Replit e copie
+todos os dados do Production Database para o Development Database, substituindo
+o conteúdo atual do Development completamente.
+
+### Requisitos
+
+- Usar as variáveis de ambiente do Replit para conectar nos dois bancos:
+  * Production: variável `DATABASE_URL` (ou equivalente de produção)
+  * Development: variável `DEV_DATABASE_URL` (ou equivalente de desenvolvimento)
+  * Verificar os nomes exatos das variáveis de ambiente antes de escrever o script
+- O script deve:
+  1. Conectar nos dois bancos
+  2. Listar todas as tabelas do Production
+  3. Para cada tabela: truncar no Development e inserir todos os registros do Production
+  4. Preservar a ordem correta (respeitar foreign keys — desativar constraints durante cópia)
+  5. Exibir log de progresso: nome da tabela + quantidade de registros copiados
+  6. Exibir mensagem de sucesso ao final com total de tabelas e registros copiados
+- O script deve ser executado UMA única vez via `node scripts/copy-prod-to-dev.js`
+- Após execução bem-sucedida, o script pode ser mantido no projeto para uso futuro
+
+### Design / Diretrizes de UI
+
+- Apenas script de linha de comando. Sem alterações no frontend.
+
+### Restrições
+
+- NÃO alterar nenhum arquivo do sistema (rotas, frontend, backend, configurações)
+- NÃO modificar o Production Database em hipótese alguma — apenas leitura
+- NÃO rodar o script automaticamente — apenas criá-lo pronto para execução manual
+- Criar o script em `scripts/copy-prod-to-dev.js`
+
+### Critérios de Aceite
+
+- [ ] Script criado em `scripts/copy-prod-to-dev.js`
+- [ ] Script conecta nos dois bancos usando variáveis de ambiente do Replit
+- [ ] Ao rodar, exibe log de cada tabela sendo copiada com quantidade de registros
+- [ ] Development Database fica com os mesmos dados do Production após execução
+- [ ] Production Database não foi alterado
+- [ ] Nenhum arquivo do sistema foi modificado
