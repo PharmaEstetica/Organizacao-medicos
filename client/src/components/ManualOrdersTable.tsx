@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Table,
@@ -28,6 +26,17 @@ export function ManualOrdersTable({ filterMonth = "all" }: ManualOrdersTableProp
   const { isLocked, verifyPassword } = useProtectedAccess('relatorios');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+
+  const parseDateLocal = (dateStr: string) => {
+    const dateOnly = (dateStr || "").split("T")[0];
+    const [year, month, day] = dateOnly.split("-").map(Number);
+    return { year, month: month || 1, day: day || 1 };
+  };
+
+  const formatDateBR = (dateStr: string) => {
+    const { year, month, day } = parseDateLocal(dateStr);
+    return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+  };
 
   const formatCurrency = (value: string | number) => {
     const num = typeof value === 'string' ? parseFloat(value) : value;
@@ -61,9 +70,8 @@ export function ManualOrdersTable({ filterMonth = "all" }: ManualOrdersTableProp
   const filteredOrders = filterMonth === "all" 
     ? orders 
     : orders.filter(o => {
-        const date = new Date(o.orderDate);
-        const orderMonth = `${date.getMonth() + 1}/${date.getFullYear()}`;
-        return orderMonth === filterMonth;
+        const { year, month } = parseDateLocal(o.orderDate);
+        return `${month}/${year}` === filterMonth;
       });
 
   const totalValue = filteredOrders.reduce((sum, o) => sum + parseFloat(o.netValue), 0);
@@ -109,7 +117,7 @@ export function ManualOrdersTable({ filterMonth = "all" }: ManualOrdersTableProp
                 filteredOrders.map((order) => (
                   <TableRow key={order.id} className="hover:bg-muted/30 transition-colors border-b border-border/40" data-testid={`row-order-${order.id}`}>
                     <TableCell className="text-muted-foreground py-3 text-sm">
-                      {format(new Date(order.orderDate), "dd/MM/yyyy", { locale: ptBR })}
+                      {formatDateBR(order.orderDate)}
                     </TableCell>
                     <TableCell className="font-semibold text-foreground text-sm">{getPrescriberName(order.prescriberId)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground font-mono">

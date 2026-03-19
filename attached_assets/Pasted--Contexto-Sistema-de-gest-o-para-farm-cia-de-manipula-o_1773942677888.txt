@@ -1,0 +1,45 @@
+# Contexto
+
+Sistema de gestão para farmácia de manipulação (Node.js + Express + SQLite, hospedado no Replit).
+Na área "Pedidos de Parceiros" → "Pedidos Manuais", ao cadastrar um novo pedido manual,
+a data inserida pelo usuário é salva ou exibida com um dia a menos do que o informado.
+
+Exemplo confirmado: usuário insere 19/03/2026 → após salvar, o sistema exibe 18/03/2026.
+
+Causa provável: a data está sendo salva como string ISO UTC (ex: "2026-03-19T00:00:00.000Z")
+e na hora de converter para exibição o JavaScript aplica o fuso horário local (UTC-3 =
+Brasília), voltando para o dia anterior.
+
+## Tarefa
+
+Corrigir o bug de data na área de Pedidos Manuais para que a data exibida após salvar seja
+exatamente a mesma que o usuário digitou, sem deslocamento de fuso horário.
+
+### Requisitos
+
+- Localizar onde a data do pedido manual é salva no backend (rota POST/PUT de pedidos manuais)
+- Localizar onde a data é lida e exibida no frontend (componente da tabela de Pedidos Manuais)
+- Corrigir o tratamento de data para preservar o dia exato inserido, sem conversão UTC:
+  * Salvar a data como string no formato "YYYY-MM-DD" (sem horário, sem timezone)
+  * Na exibição, converter "YYYY-MM-DD" para "DD/MM/YYYY" sem aplicar conversão de fuso
+  * Usar `date.split('-')` ou `parseISO` local em vez de `new Date(string)` diretamente,
+    pois `new Date("2026-03-19")` interpreta como UTC meia-noite e converte pro fuso local
+- Verificar se o mesmo problema ocorre na edição de pedido existente e corrigir também
+
+### Design / Diretrizes de UI
+
+- Sem alterações visuais. Apenas o valor da data exibida muda para o correto.
+
+### Restrições
+
+- NÃO alterar nenhuma outra área do sistema (relatórios, cadastros, fórmulas, login)
+- NÃO alterar a estrutura da tabela `manual_orders` no banco
+- NÃO alterar outros campos do formulário de pedido manual além da data
+- Corrigir apenas o tratamento de data nos pedidos manuais
+
+### Critérios de Aceite
+
+- [ ] Ao inserir 19/03/2026 e salvar, o sistema exibe 19/03/2026 na tabela (não 18/03/2026)
+- [ ] Ao editar um pedido existente, a data carregada no formulário é a mesma que foi salva
+- [ ] Datas já salvas anteriormente com o bug não são afetadas (sem migration de dados)
+- [ ] Nenhuma outra funcionalidade do sistema foi alterada

@@ -52,8 +52,9 @@ export function OrdersManager() {
   const [ordersFilterMonth, setOrdersFilterMonth] = useState<string>("all");
 
   const availableMonths = Array.from(new Set(orders.map(o => {
-    const date = new Date(o.orderDate);
-    return `${date.getMonth() + 1}/${date.getFullYear()}`;
+    const dateOnly = (o.orderDate || "").split("T")[0];
+    const [year, month] = dateOnly.split("-").map(Number);
+    return `${month || 1}/${year}`;
   }))).sort();
 
   const orderForm = useForm<z.infer<typeof orderFormSchema>>({
