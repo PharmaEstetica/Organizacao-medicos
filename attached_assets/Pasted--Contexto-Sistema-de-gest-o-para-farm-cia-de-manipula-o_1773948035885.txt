@@ -1,0 +1,60 @@
+# Contexto
+
+Sistema de gestão para farmácia de manipulação (Node.js + Express + SQLite, hospedado no Replit).
+A página de Configurações já existe com blocos de controle de acesso por senha.
+Existe o script `scripts/copy-prod-to-dev.js` que copia todos os dados do banco
+de Production para o Development com sucesso (já testado e funcionando).
+
+## Tarefa
+
+Adicionar um botão discreto na página de Configurações chamado "Sincronizar banco
+de dados" que executa o script de cópia Production → Development com um clique,
+exibindo progresso em tempo real e resultado final.
+
+### Requisitos
+
+- Adicionar o botão no final da página de Configurações, abaixo de todos os blocos
+  existentes, com visual discreto (secundário, menor destaque que "Salvar Configurações")
+- Label do botão: "Sincronizar banco de dados" com ícone de sincronização
+- Ao clicar, exibir modal de confirmação com aviso:
+  "Isso irá substituir todos os dados do banco de desenvolvimento com os dados
+  atuais de produção. Deseja continuar?"
+  Botão "Confirmar" + botão "Cancelar"
+- Após confirmar, o botão fica desabilitado e exibe spinner + texto "Sincronizando..."
+- Criar endpoint POST `/api/admin/sync-database` no backend que:
+  * Executa a lógica do script `scripts/copy-prod-to-dev.js` 
+  * Retorna JSON com resultado: tabelas copiadas, registros totais, erros se houver
+- Após concluir, exibir na tela:
+  * Toast de sucesso com: "Sincronização concluída — X tabelas, Y registros copiados"
+  * Ou toast de erro com a mensagem do problema se falhar
+- O botão só aparece quando o sistema está rodando em ambiente Development (não
+  exibir em Production para evitar acidentes)
+
+### Design / Diretrizes de UI
+
+- Botão discreto: outline ou ghost style, cor neutra (não vermelho, não azul primário)
+- Ícone de sincronização (🔄 ou similar da biblioteca de ícones já usada no sistema)
+- Modal de confirmação com aviso em amarelo/laranja — ação importante mas não destrutiva
+- Spinner animado durante execução
+- Toast de sucesso/erro seguindo o padrão visual já existente no sistema
+- Posicionado no final da página, separado dos blocos de senha por um divisor sutil
+
+### Restrições
+
+- NÃO alterar os blocos de senha existentes na página de Configurações
+- NÃO alterar o script `scripts/copy-prod-to-dev.js` — apenas importar/reutilizar
+  sua lógica no endpoint
+- NÃO exibir o botão quando o sistema estiver rodando em Production
+- NÃO alterar nenhuma outra página ou funcionalidade do sistema
+
+### Critérios de Aceite
+
+- [ ] Botão "Sincronizar banco de dados" aparece no final da página de Configurações
+      somente em ambiente Development
+- [ ] Ao clicar, modal de confirmação é exibido com aviso claro
+- [ ] Após confirmar, botão fica desabilitado com spinner durante execução
+- [ ] Endpoint POST `/api/admin/sync-database` executa a cópia com sucesso
+- [ ] Toast de sucesso exibe número de tabelas e registros copiados
+- [ ] Toast de erro exibe mensagem clara se algo falhar
+- [ ] Em Production o botão não aparece
+- [ ] Nenhuma outra funcionalidade do sistema foi alterada

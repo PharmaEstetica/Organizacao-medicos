@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import pkg from "pg";
+const { Pool } = pkg;
 import {
   insertPrescriberSchema,
   insertPackagingSchema,
@@ -459,6 +461,131 @@ export async function registerRoutes(
       res.json({ isProtected: protectedSetting?.settingValue === 'true' });
     } catch (error) {
       res.status(500).json({ error: "Failed to check protection status" });
+    }
+  });
+
+  // ── Sync Production → Development (development only) ────────────────────────
+  app.post("/api/admin/sync-database", async (req, res) => {
+    if (process.env.NODE_ENV !== "development") {
+      return res.status(403).json({ error: "Only available in development environment" });
+    }
+
+    const PROD_URL = process.env.PROD_DATABASE_URL;
+    const DEV_URL  = process.env.DATABASE_URL;
+
+    if (!PROD_URL) {
+      return res.status(400).json({ error: "PROD_DATABASE_URL não está definida. Configure o secret antes de sincronizar." });
+    }
+    if (PROD_URL === DEV_URL) {
+      return res.status(400).json({ error: "PROD_DATABASE_URL e DATABASE_URL são idênticas. Sincronização abortada." });
+    }
+
+    const prod = new Pool({ connectionString: PROD_URL, ssl: { rejectUnauthorized: false } });
+    const dev  = new Pool({ connectionString: DEV_URL,  ssl: { rejectUnauthorized: false } });
+
+    function sanitizeJsonValue(value: any): any {
+      if (value === null || value === undefined) return null;
+      if (typeof value === "object") {
+        try { return JSON.stringify(value); } catch { return null; }
+      }
+      if (typeof value === "string") {
+        const t = value.trim();
+        if (t === "" || t === "null") return null;
+        try { JSON.parse(t); return t; } catch { return null; }
+      }
+      return value;
+    }
+
+    let prodClient: any, devClient: any;
+    const errors: string[] = [];
+    let totalTables  = 0;
+    let totalRecords = 0;
+
+    try {
+      prodClient = await prod.connect();
+      devClient  = await dev.connect();
+
+      // List all tables from production
+      const tablesRes = await prodClient.query(
+        `SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`
+      );
+      const tables: string[] = tablesRes.rows.map((r: any) => r.tablename);
+
+      // Phase 1: truncate all at once to avoid cascade side-effects
+      const tableList = tables.map((t: string) => `"${t}"`).join(", ");
+      await devClient.query(`TRUNCATE ${tableList} RESTART IDENTITY CASCADE`);
+
+      // Phase 2: disable FK checks on inserts, then copy each table
+      await devClient.query("SET session_replication_role = 'replica'");
+
+      for (const table of tables) {
+        try {
+          // Get column metadata
+          const colRes = await prodClient.query(
+            `SELECT column_name, data_type, udt_name
+             FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = $1
+             ORDER BY ordinal_position`,
+            [table]
+          );
+          const colMeta: { name: string; isJson: boolean }[] = colRes.rows.map((r: any) => ({
+            name:   r.column_name,
+            isJson: ["json","jsonb"].includes(r.data_type) || ["json","jsonb"].includes(r.udt_name),
+          }));
+          if (colMeta.length === 0) continue;
+
+          const { rows } = await prodClient.query(`SELECT * FROM "${table}"`);
+          if (rows.length === 0) { totalTables++; continue; }
+
+          const cols       = colMeta.map((c) => c.name);
+          const quotedCols = cols.map((c) => `"${c}"`).join(", ");
+          const BATCH      = 500;
+
+          for (let i = 0; i < rows.length; i += BATCH) {
+            const batch = rows.slice(i, i + BATCH);
+            const placeholders = batch
+              .map((_: any, ri: number) =>
+                `(${cols.map((_: any, ci: number) => `$${ri * cols.length + ci + 1}`).join(", ")})`
+              ).join(", ");
+            const values = batch.flatMap((row: any) =>
+              colMeta.map((col) => col.isJson ? sanitizeJsonValue(row[col.name]) : row[col.name])
+            );
+            await devClient.query(
+              `INSERT INTO "${table}" (${quotedCols}) VALUES ${placeholders}`,
+              values
+            );
+          }
+
+          totalRecords += rows.length;
+          totalTables++;
+        } catch (err: any) {
+          errors.push(`${table}: ${err.message}`);
+        }
+      }
+
+      await devClient.query("SET session_replication_role = 'origin'");
+
+      // Reset sequences
+      const seqRes = await devClient.query(
+        `SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema = 'public'`
+      );
+      for (const { sequence_name } of seqRes.rows) {
+        const tableName = sequence_name.replace(/_id_seq$/, "");
+        try {
+          await devClient.query(
+            `SELECT setval('${sequence_name}', COALESCE((SELECT MAX(id) FROM "${tableName}"), 1))`
+          );
+        } catch { /* ignore */ }
+      }
+
+      res.json({ success: true, totalTables, totalRecords, errors });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message, errors });
+    } finally {
+      prodClient?.release();
+      devClient?.release();
+      await prod.end().catch(() => {});
+      await dev.end().catch(() => {});
     }
   });
 

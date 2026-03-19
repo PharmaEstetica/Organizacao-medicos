@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, Eye, EyeOff, Save, Lock, Loader2 } from 'lucide-react';
+import { Settings, Eye, EyeOff, Save, Lock, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useProtectedAccess } from '@/hooks/useProtectedAccess';
 import { PasswordModal } from '@/components/PasswordModal';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 
 interface SettingsState {
@@ -57,6 +58,40 @@ export default function Configuracoes() {
   const [saving, setSaving] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [loadingSettings, setLoadingSettings] = useState(true);
+  const [showSyncConfirm, setShowSyncConfirm] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const isDev = import.meta.env.DEV;
+
+  const handleSync = async () => {
+    setShowSyncConfirm(false);
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/admin/sync-database', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        toast({
+          title: "Erro na sincronização",
+          description: data.error || "Falha ao sincronizar o banco de dados.",
+          variant: "destructive",
+        });
+      } else {
+        const extras = data.errors?.length > 0 ? ` (${data.errors.length} erro(s))` : '';
+        toast({
+          title: "Sincronização concluída",
+          description: `${data.totalTables} tabelas, ${data.totalRecords} registros copiados${extras}.`,
+        });
+      }
+    } catch {
+      toast({
+        title: "Erro na sincronização",
+        description: "Não foi possível conectar ao servidor.",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     if (isProtected && isLocked && !accessLoading) {
@@ -416,6 +451,82 @@ export default function Configuracoes() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Sync button — development only */}
+      {isDev && (
+        <>
+          <div className="relative my-8">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border/40" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-background px-3 text-xs text-muted-foreground uppercase tracking-widest">
+                Ferramentas de desenvolvimento
+              </span>
+            </div>
+          </div>
+
+          <Card className="rounded-sm border-border/50">
+            <CardContent className="pt-5 pb-5 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">Sincronizar banco de dados</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Substitui os dados do Development com os dados atuais de Production.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-sm shrink-0 gap-2"
+                disabled={syncing}
+                onClick={() => setShowSyncConfirm(true)}
+                data-testid="button-sync-database"
+              >
+                {syncing
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Sincronizando...</>
+                  : <><RefreshCw className="h-4 w-4" /> Sincronizar banco de dados</>
+                }
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Dialog open={showSyncConfirm} onOpenChange={setShowSyncConfirm}>
+            <DialogContent className="sm:max-w-[440px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-500" />
+                  Confirmar sincronização
+                </DialogTitle>
+                <DialogDescription asChild>
+                  <div className="mt-3 rounded-sm border border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 p-3 text-sm text-amber-700 dark:text-amber-300">
+                    Isso irá substituir <strong>todos os dados</strong> do banco de desenvolvimento
+                    com os dados atuais de produção. Esta ação não pode ser desfeita.
+                    <br /><br />
+                    Deseja continuar?
+                  </div>
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="mt-2">
+                <Button
+                  variant="outline"
+                  className="rounded-sm"
+                  onClick={() => setShowSyncConfirm(false)}
+                  data-testid="button-cancel-sync"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  className="rounded-sm"
+                  onClick={handleSync}
+                  data-testid="button-confirm-sync"
+                >
+                  Confirmar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </div>
   );
 }
