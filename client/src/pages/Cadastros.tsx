@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { PrescriberForm } from "@/components/PrescriberForm";
 import { PrescriberList } from "@/components/PrescriberList";
 import { PackagingManager } from "@/components/PackagingManager";
+import { CashbackManager } from "@/components/CashbackManager";
 import { Button } from "@/components/ui/button";
-import { Plus, Users, Package, Loader2 } from "lucide-react";
+import { Plus, Users, Package, Loader2, Banknote } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -109,6 +110,10 @@ export default function Cadastros() {
                 <Package className="h-4 w-4" />
                 Embalagens
             </TabsTrigger>
+            <TabsTrigger value="cashback" className="flex items-center gap-2">
+                <Banknote className="h-4 w-4" />
+                Cashback
+            </TabsTrigger>
         </TabsList>
 
         <TabsContent value="prescritores" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -137,6 +142,10 @@ export default function Cadastros() {
 
         <TabsContent value="embalagens" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <PackagingManager />
+        </TabsContent>
+
+        <TabsContent value="cashback" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <CashbackManager />
         </TabsContent>
       </Tabs>
 

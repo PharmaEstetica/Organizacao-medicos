@@ -8,8 +8,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { FileDown, Calendar, Wallet, Trash2 } from "lucide-react";
+import { FileDown, Calendar, Wallet, Trash2, Banknote } from "lucide-react";
 import { useReports, usePrescribers, useDeleteReport } from "@/hooks/useApi";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -27,6 +28,11 @@ interface ReportsListProps {
   onDownload: (reportId: number) => void;
 }
 
+interface CashbackSummary {
+  prescriber_id: number;
+  balance: number;
+}
+
 export function ReportsList({ onDownload }: ReportsListProps) {
   const { data: reports = [] } = useReports();
   const { data: prescribers = [] } = usePrescribers();
@@ -36,9 +42,30 @@ export function ReportsList({ onDownload }: ReportsListProps) {
   const [reportToDelete, setReportToDelete] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const { data: cashbackSummaries = [] } = useQuery<CashbackSummary[]>({
+    queryKey: ["cashback-all"],
+    queryFn: async () => {
+      const res = await fetch("/api/cashback/all");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   const getPrescriberName = (id: number) => {
     return prescribers.find(p => p.id === id)?.name || "Desconhecido";
   };
+
+  const getPrescriberBondType = (id: number) => {
+    return prescribers.find(p => p.id === id)?.bondType ?? "";
+  };
+
+  const getCashbackBalance = (prescriberId: number): number | null => {
+    const entry = cashbackSummaries.find(c => c.prescriber_id === prescriberId);
+    return entry ? entry.balance : null;
+  };
+
+  const fmtBRL = (n: number) =>
+    n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const formatCurrency = (value: string | number) => {
     const numValue = typeof value === 'string' ? parseFloat(value) : value;
@@ -102,7 +129,20 @@ export function ReportsList({ onDownload }: ReportsListProps) {
                       {report.referenceMonth}
                     </div>
                   </TableCell>
-                  <TableCell className="font-medium text-foreground">{getPrescriberName(report.prescriberId)}</TableCell>
+                  <TableCell className="font-medium text-foreground">
+                    <div className="flex flex-col gap-1">
+                      <span>{getPrescriberName(report.prescriberId)}</span>
+                      {getPrescriberBondType(report.prescriberId) === "C" && (() => {
+                        const bal = getCashbackBalance(report.prescriberId);
+                        return bal !== null ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-400">
+                            <Banknote className="h-3 w-3" />
+                            💰 Cashback disponível: {fmtBRL(bal)}
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right text-muted-foreground">
                     {formatCurrency(report.totalEffectiveValue)}
                   </TableCell>
