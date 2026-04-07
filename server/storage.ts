@@ -12,6 +12,8 @@ import {
   reports,
   pharmaceuticalForms,
   settings,
+  cashbackBalances,
+  cashbackPayments,
   type Prescriber,
   type InsertPrescriber,
   type Packaging,
@@ -31,7 +33,32 @@ import {
   type PharmaceuticalForm,
   type InsertPharmaceuticalForm,
   type Setting,
+  type CashbackBalance,
+  type CashbackPayment,
 } from "@shared/schema";
+
+export interface CashbackSummary {
+  prescriber_id: number;
+  name: string;
+  specialty: string;
+  total_available: number;
+  total_pending: number;
+  total_paid: number;
+  balance: number;
+  monthly_breakdown: {
+    month: string;
+    gross_sales: number;
+    cashback_percentage: number;
+    cashback_amount: number;
+    status: string;
+  }[];
+  payments_history: {
+    id: number;
+    amount: number;
+    payment_date: string;
+    notes: string | null;
+  }[];
+}
 
 export interface IStorage {
   getPrescribers(): Promise<Prescriber[]>;
@@ -88,6 +115,12 @@ export interface IStorage {
   initializeDefaultSettings(): Promise<void>;
   verifyPassword(area: string, password: string): Promise<boolean>;
   updatePassword(area: string, newPassword: string): Promise<void>;
+
+  upsertCashbackBalance(prescriberId: number, month: string, grossSales: number, cashbackPercentage: number): Promise<CashbackBalance>;
+  getCashbackSummary(prescriberId: number): Promise<CashbackSummary>;
+  getAllCashbackSummaries(): Promise<Omit<CashbackSummary, 'monthly_breakdown' | 'payments_history'>[]>;
+  createCashbackPayment(prescriberId: number, amount: number, paymentDate: string, notes?: string): Promise<CashbackPayment>;
+  getCashbackAvailableBalance(prescriberId: number): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -444,6 +477,168 @@ export class DatabaseStorage implements IStorage {
   async updatePassword(area: string, newPassword: string): Promise<void> {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await this.upsertSetting(`${area}_password`, hashedPassword);
+  }
+
+  async upsertCashbackBalance(
+    prescriberId: number,
+    month: string,
+    grossSales: number,
+    cashbackPercentage: number
+  ): Promise<CashbackBalance> {
+    const cashbackAmount = parseFloat((grossSales * cashbackPercentage / 100).toFixed(2));
+    const existing = await db
+      .select()
+      .from(cashbackBalances)
+      .where(and(eq(cashbackBalances.prescriberId, prescriberId), eq(cashbackBalances.month, month)));
+
+    if (existing.length > 0) {
+      const result = await db
+        .update(cashbackBalances)
+        .set({
+          grossSales: grossSales.toFixed(2),
+          cashbackPercentage: cashbackPercentage.toFixed(2),
+          cashbackAmount: cashbackAmount.toFixed(2),
+          updatedAt: new Date(),
+        })
+        .where(and(eq(cashbackBalances.prescriberId, prescriberId), eq(cashbackBalances.month, month)))
+        .returning();
+      return result[0];
+    } else {
+      const result = await db
+        .insert(cashbackBalances)
+        .values({
+          prescriberId,
+          month,
+          grossSales: grossSales.toFixed(2),
+          cashbackPercentage: cashbackPercentage.toFixed(2),
+          cashbackAmount: cashbackAmount.toFixed(2),
+          status: 'available',
+        })
+        .returning();
+      return result[0];
+    }
+  }
+
+  async getCashbackSummary(prescriberId: number): Promise<CashbackSummary> {
+    const prescriber = await this.getPrescriber(prescriberId);
+    if (!prescriber) throw new Error('Prescritor não encontrado');
+
+    const balances = await db
+      .select()
+      .from(cashbackBalances)
+      .where(eq(cashbackBalances.prescriberId, prescriberId))
+      .orderBy(desc(cashbackBalances.month));
+
+    const payments = await db
+      .select()
+      .from(cashbackPayments)
+      .where(eq(cashbackPayments.prescriberId, prescriberId))
+      .orderBy(desc(cashbackPayments.paymentDate));
+
+    const total_available = balances
+      .filter(b => b.status === 'available')
+      .reduce((s, b) => s + parseFloat(b.cashbackAmount), 0);
+    const total_pending = balances
+      .filter(b => b.status === 'pending')
+      .reduce((s, b) => s + parseFloat(b.cashbackAmount), 0);
+    const total_paid = payments.reduce((s, p) => s + parseFloat(p.amount), 0);
+    const balance = parseFloat((total_available - total_paid).toFixed(2));
+
+    return {
+      prescriber_id: prescriberId,
+      name: prescriber.name,
+      specialty: prescriber.specialty,
+      total_available: parseFloat(total_available.toFixed(2)),
+      total_pending: parseFloat(total_pending.toFixed(2)),
+      total_paid: parseFloat(total_paid.toFixed(2)),
+      balance,
+      monthly_breakdown: balances.map(b => ({
+        month: b.month,
+        gross_sales: parseFloat(b.grossSales),
+        cashback_percentage: parseFloat(b.cashbackPercentage),
+        cashback_amount: parseFloat(b.cashbackAmount),
+        status: b.status,
+      })),
+      payments_history: payments.map(p => ({
+        id: p.id,
+        amount: parseFloat(p.amount),
+        payment_date: p.paymentDate,
+        notes: p.notes,
+      })),
+    };
+  }
+
+  async getAllCashbackSummaries(): Promise<Omit<CashbackSummary, 'monthly_breakdown' | 'payments_history'>[]> {
+    const cashbackPrescribers = await db
+      .select()
+      .from(prescribers)
+      .where(eq(prescribers.bondType, 'C'));
+
+    const results = [];
+    for (const p of cashbackPrescribers) {
+      const balances = await db
+        .select()
+        .from(cashbackBalances)
+        .where(eq(cashbackBalances.prescriberId, p.id));
+
+      const payments = await db
+        .select()
+        .from(cashbackPayments)
+        .where(eq(cashbackPayments.prescriberId, p.id));
+
+      const total_available = balances
+        .filter(b => b.status === 'available')
+        .reduce((s, b) => s + parseFloat(b.cashbackAmount), 0);
+      const total_pending = balances
+        .filter(b => b.status === 'pending')
+        .reduce((s, b) => s + parseFloat(b.cashbackAmount), 0);
+      const total_paid = payments.reduce((s, pmt) => s + parseFloat(pmt.amount), 0);
+      const balance = parseFloat((total_available - total_paid).toFixed(2));
+
+      results.push({
+        prescriber_id: p.id,
+        name: p.name,
+        specialty: p.specialty,
+        total_available: parseFloat(total_available.toFixed(2)),
+        total_pending: parseFloat(total_pending.toFixed(2)),
+        total_paid: parseFloat(total_paid.toFixed(2)),
+        balance,
+      });
+    }
+    return results;
+  }
+
+  async createCashbackPayment(
+    prescriberId: number,
+    amount: number,
+    paymentDate: string,
+    notes?: string
+  ): Promise<CashbackPayment> {
+    const result = await db
+      .insert(cashbackPayments)
+      .values({
+        prescriberId,
+        amount: amount.toFixed(2),
+        paymentDate,
+        notes: notes ?? null,
+      })
+      .returning();
+    return result[0];
+  }
+
+  async getCashbackAvailableBalance(prescriberId: number): Promise<number> {
+    const balances = await db
+      .select()
+      .from(cashbackBalances)
+      .where(and(eq(cashbackBalances.prescriberId, prescriberId), eq(cashbackBalances.status, 'available')));
+    const payments = await db
+      .select()
+      .from(cashbackPayments)
+      .where(eq(cashbackPayments.prescriberId, prescriberId));
+
+    const total_available = balances.reduce((s, b) => s + parseFloat(b.cashbackAmount), 0);
+    const total_paid = payments.reduce((s, p) => s + parseFloat(p.amount), 0);
+    return parseFloat((total_available - total_paid).toFixed(2));
   }
 }
 

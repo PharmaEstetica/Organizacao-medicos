@@ -1,6 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import { eq, and, gte, lt, sql } from "drizzle-orm";
+import { csvOrders } from "@shared/schema";
 import pkg from "pg";
 const { Pool } = pkg;
 import {
@@ -320,6 +323,37 @@ export async function registerRoutes(
     try {
       const validated = insertReportSchema.parse(req.body);
       const report = await storage.createReport(validated);
+
+      // Auto-calculate cashback for "C" type prescribers
+      try {
+        const prescriber = await storage.getPrescriber(report.prescriberId);
+        if (prescriber && prescriber.bondType === 'C') {
+          // referenceMonth is "MM/YYYY" — convert to "YYYY-MM"
+          const [mon, year] = report.referenceMonth.split('/');
+          const month = `${year}-${mon.padStart(2, '0')}`;
+          const startDate = new Date(Number(year), Number(mon) - 1, 1);
+          const endDate   = new Date(Number(year), Number(mon), 1);
+
+          const orders = await db
+            .select()
+            .from(csvOrders)
+            .where(
+              and(
+                sql`LOWER(${csvOrders.prescriberName}) = LOWER(${prescriber.name})`,
+                gte(csvOrders.orderDate, startDate),
+                lt(csvOrders.orderDate, endDate),
+                eq(csvOrders.status, 'Efetivado')
+              )
+            );
+
+          const grossSales = orders.reduce((s, o) => s + parseFloat(o.netValue), 0);
+          const cashbackPercentage = parseFloat(prescriber.commissionPercentage);
+          await storage.upsertCashbackBalance(prescriber.id, month, grossSales, cashbackPercentage);
+        }
+      } catch (cashbackErr) {
+        console.error('[cashback] auto-calculate error:', cashbackErr);
+      }
+
       res.status(201).json(report);
     } catch (error) {
       res.status(400).json({ error: "Invalid report data" });
@@ -379,6 +413,132 @@ export async function registerRoutes(
   });
 
   await storage.initializeDefaultSettings();
+
+  // ── Cashback endpoints ────────────────────────────────────────────────────
+  // GET /api/cashback/all — must be registered BEFORE /:prescriberId
+  app.get("/api/cashback/all", async (req, res) => {
+    try {
+      const summaries = await storage.getAllCashbackSummaries();
+      res.json(summaries);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch cashback summaries" });
+    }
+  });
+
+  app.get("/api/cashback/:prescriberId", async (req, res) => {
+    try {
+      const prescriberId = Number(req.params.prescriberId);
+      if (isNaN(prescriberId)) return res.status(400).json({ error: "prescriberId inválido" });
+      const summary = await storage.getCashbackSummary(prescriberId);
+      res.json(summary);
+    } catch (error: any) {
+      if (error?.message?.includes('não encontrado')) {
+        return res.status(404).json({ error: error.message });
+      }
+      res.status(500).json({ error: "Failed to fetch cashback summary" });
+    }
+  });
+
+  app.post("/api/cashback/calculate", async (req, res) => {
+    try {
+      const { prescriber_id, month } = req.body;
+      if (!prescriber_id || !month) {
+        return res.status(400).json({ error: "prescriber_id e month são obrigatórios" });
+      }
+      const prescriber = await storage.getPrescriber(Number(prescriber_id));
+      if (!prescriber) return res.status(404).json({ error: "Prescritor não encontrado" });
+      if (prescriber.bondType !== 'C') {
+        return res.status(400).json({ error: "Prescritor não é do tipo Cashback" });
+      }
+
+      // month must be "YYYY-MM"
+      const [year, mon] = month.split('-').map(Number);
+      const startDate = new Date(year, mon - 1, 1);
+      const endDate = new Date(year, mon, 1);
+
+      const orders = await db
+        .select()
+        .from(csvOrders)
+        .where(
+          and(
+            sql`LOWER(${csvOrders.prescriberName}) = LOWER(${prescriber.name})`,
+            gte(csvOrders.orderDate, startDate),
+            lt(csvOrders.orderDate, endDate),
+            eq(csvOrders.status, 'Efetivado')
+          )
+        );
+
+      const grossSales = orders.reduce((s, o) => s + parseFloat(o.netValue), 0);
+      const cashbackPercentage = parseFloat(prescriber.commissionPercentage);
+      const balance = await storage.upsertCashbackBalance(
+        prescriber.id, month, grossSales, cashbackPercentage
+      );
+      res.json(balance);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to calculate cashback" });
+    }
+  });
+
+  app.post("/api/cashback/calculate-from-report", async (req, res) => {
+    try {
+      // Expects: { entries: [{ prescriberName, month, grossSales }] }
+      // or: { prescriberId, month, grossSales }
+      const { entries } = req.body as {
+        entries: { prescriberName: string; month: string; grossSales: number }[];
+      };
+
+      if (!Array.isArray(entries) || entries.length === 0) {
+        return res.status(400).json({ error: "entries é obrigatório e deve ser um array" });
+      }
+
+      const allPrescribers = await storage.getPrescribers();
+      const cashbackPrescribers = allPrescribers.filter(p => p.bondType === 'C');
+
+      const results: any[] = [];
+      for (const entry of entries) {
+        const prescriber = cashbackPrescribers.find(
+          p => p.name.toLowerCase() === entry.prescriberName.toLowerCase()
+        );
+        if (!prescriber) continue;
+
+        const cashbackPercentage = parseFloat(prescriber.commissionPercentage);
+        const balance = await storage.upsertCashbackBalance(
+          prescriber.id, entry.month, entry.grossSales, cashbackPercentage
+        );
+        results.push({ prescriberName: prescriber.name, ...balance });
+      }
+      res.json({ processed: results.length, results });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to calculate cashback from report" });
+    }
+  });
+
+  app.post("/api/cashback/payments", async (req, res) => {
+    try {
+      const { prescriber_id, amount, payment_date, notes } = req.body;
+      if (!prescriber_id || !amount || !payment_date) {
+        return res.status(400).json({ error: "prescriber_id, amount e payment_date são obrigatórios" });
+      }
+      const amountNum = parseFloat(amount);
+      if (isNaN(amountNum) || amountNum <= 0) {
+        return res.status(400).json({ error: "amount deve ser um número positivo" });
+      }
+
+      const availableBalance = await storage.getCashbackAvailableBalance(Number(prescriber_id));
+      if (amountNum > availableBalance + 0.001) {
+        return res.status(400).json({
+          error: `Saldo insuficiente. Disponível: R$ ${availableBalance.toFixed(2)}, solicitado: R$ ${amountNum.toFixed(2)}`
+        });
+      }
+
+      const payment = await storage.createCashbackPayment(
+        Number(prescriber_id), amountNum, payment_date, notes
+      );
+      res.status(201).json(payment);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to register cashback payment" });
+    }
+  });
 
   app.get("/api/settings", async (req, res) => {
     try {

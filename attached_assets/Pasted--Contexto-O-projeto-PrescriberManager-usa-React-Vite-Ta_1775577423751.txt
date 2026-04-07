@@ -1,0 +1,82 @@
+# Contexto
+O projeto PrescriberManager usa React + Vite + TailwindCSS. A página de Cadastros já tem abas na navegação do topo (Buscar, Cadastros, Pedidos, Fórmulas, Relatórios, Configurações). Dentro de Cadastros já existem sub-abas como "Prescritores" e "Embalagens". Agora temos endpoints de cashback prontos:
+- GET /api/cashback/all → lista todos prescritores "C" com saldos
+- GET /api/cashback/:prescriberId → resumo detalhado de um prescritor
+- POST /api/cashback/payments → registra pagamento
+
+Os prescritores tipo "C" (Cashback) aparecem na lista com a letra "C" ao lado do nome (visível na tela de cadastros). Formato de moeda brasileiro: R$ 1.000,00. Idioma: português brasileiro.
+
+## Tarefa
+Crie uma nova sub-aba "Cashback" dentro da seção Cadastros, posicionada ao lado da aba "Embalagens" existente. Esta aba mostra o painel geral de cashback de todos os prescritores tipo "C" e permite visualizar detalhes individuais e registrar pagamentos.
+
+### Requisitos
+**Aba geral "Cashback" (lista):**
+- Nova sub-aba chamada "Cashback" dentro de Cadastros, ao lado de "Embalagens"
+- Ícone: usar ícone de moeda ou cifrão do Lucide React (ex: `DollarSign` ou `Banknote`)
+- Exibe uma tabela/lista com todos os prescritores tipo "C":
+  - Foto do prescritor (thumbnail pequena, como já aparece na lista de cadastros)
+  - Nome do prescritor
+  - Especialidade
+  - Saldo disponível (em verde, formato R$ X.XXX,XX)
+  - Total pendente (em amarelo/laranja)
+  - Total já pago (em cinza)
+  - Botão "Ver Detalhes" que abre o painel individual
+- Mostrar cards no topo com totalizadores:
+  - Card 1: "Total Disponível" (soma de todos os saldos disponíveis)
+  - Card 2: "Total Pendente" (soma de todos os pendentes)
+  - Card 3: "Total Pago" (soma de todos os pagamentos já feitos)
+
+**Painel individual do prescritor (modal ou página expandida):**
+- Ao clicar em "Ver Detalhes" de um prescritor, abre um modal ou painel lateral com:
+  - Nome e foto do prescritor no topo
+  - Card grande com "Saldo Disponível" em destaque (valor grande, cor verde)
+  - Seção "Histórico Mensal" — tabela com colunas:
+    - Mês (formato "Abril 2026")
+    - Vendas Brutas (R$)
+    - % Cashback
+    - Valor Cashback (R$)
+    - Status (badge colorido: verde = disponível, amarelo = pendente, cinza = pago)
+  - Seção "Próximas Entradas" — mostra os valores pendentes que vão entrar, baseado em relatórios já subidos mas ainda não liberados
+  - Seção "Histórico de Pagamentos" — lista de pagamentos já feitos com data, valor e observação
+  - Botão "Registrar Pagamento" que abre um mini-formulário:
+    - Campo: Valor (input numérico, formato R$)
+    - Campo: Data do Pagamento (date picker)
+    - Campo: Observação (texto opcional)
+    - Botão "Confirmar Pagamento"
+    - Validação: não permitir valor maior que o saldo disponível
+
+**Integração com relatório individual:**
+- Na tela de relatório/detalhes de um prescritor tipo "C", adicione uma seção ou banner no topo mostrando:
+  - "💰 Cashback disponível: R$ X.XXX,XX"
+  - Link "Ver detalhes do cashback →" que leva ao painel individual
+
+### Design / Diretrizes de UI
+- Estilo clean, moderno e responsivo, consistente com o design existente do PrescriberManager
+- Mobile-first: tabelas devem virar cards em telas pequenas
+- Cores: verde (#22c55e) para disponível, amarelo (#eab308) para pendente, cinza (#6b7280) para pago
+- Cards de totalizadores com fundo levemente colorido e ícones do Lucide React
+- Valores em formato brasileiro: R$ 1.000,00 (usar toLocaleString('pt-BR'))
+- Meses em português: Janeiro, Fevereiro, Março...
+- Badges de status com bordas arredondadas e texto branco sobre fundo colorido
+- Modal com overlay escuro e animação de entrada suave
+- Espaçamento consistente com o restante do sistema
+
+### Restrições
+- NÃO modifique a lista de prescritores existente (apenas adicione a nova aba)
+- NÃO modifique as abas existentes (Buscar, Cadastros, Pedidos, Fórmulas, Relatórios, Configurações)
+- NÃO modifique a sub-aba "Embalagens" existente
+- NÃO modifique o backend ou o schema do banco
+- Preserve todo o comportamento existente da página de Cadastros
+
+### Critérios de Aceite
+- [ ] Nova sub-aba "Cashback" aparece ao lado de "Embalagens" dentro de Cadastros
+- [ ] Aba Cashback exibe lista de todos os prescritores tipo "C" com saldos formatados em R$
+- [ ] Cards de totalizadores no topo mostram Total Disponível, Pendente e Pago
+- [ ] Ao clicar "Ver Detalhes", abre modal com histórico mensal e saldo em destaque
+- [ ] Seção "Próximas Entradas" mostra valores pendentes
+- [ ] Botão "Registrar Pagamento" abre formulário e valida que valor não excede saldo
+- [ ] Após registrar pagamento, saldo atualiza automaticamente sem recarregar página
+- [ ] Na tela de relatório de prescritor tipo "C", aparece banner com saldo de cashback disponível
+- [ ] Todos os valores estão em formato brasileiro (R$ X.XXX,XX)
+- [ ] Meses exibidos em português
+- [ ] Layout responsivo: tabela vira cards em telas menores
