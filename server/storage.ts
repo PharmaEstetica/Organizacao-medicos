@@ -462,6 +462,8 @@ export class DatabaseStorage implements IStorage {
       { key: 'relatorios_password', value: hashedPassword },
       { key: 'delete_protected', value: 'true' },
       { key: 'delete_password', value: hashedPassword },
+      { key: 'excluir_protected', value: 'true' },
+      { key: 'excluir_password', value: hashedPassword },
       { key: 'config_protected', value: 'true' },
       { key: 'config_password', value: hashedPassword },
       { key: 'editar_relatorio_protected', value: 'true' },
@@ -477,7 +479,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async verifyPassword(area: string, password: string): Promise<boolean> {
-    const storedHash = await this.getSetting(`${area}_password`);
+    // Try area-specific password first; fall back to delete_password for areas that share it
+    let storedHash = await this.getSetting(`${area}_password`);
+    if (!storedHash) {
+      storedHash = await this.getSetting('delete_password');
+    }
     if (!storedHash) return false;
     return bcrypt.compare(password, storedHash.settingValue);
   }
