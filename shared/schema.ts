@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, boolean, integer, decimal, timestamp, json } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, boolean, integer, decimal, timestamp, json, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -186,3 +186,54 @@ export const insertSettingSchema = createInsertSchema(settings).omit({
 
 export type InsertSetting = z.infer<typeof insertSettingSchema>;
 export type Setting = typeof settings.$inferSelect;
+
+export const cashbackBalances = pgTable(
+  "cashback_balances",
+  {
+    id: serial("id").primaryKey(),
+    prescriberId: integer("prescriber_id")
+      .references(() => prescribers.id, { onDelete: "cascade" })
+      .notNull(),
+    month: text("month").notNull(),
+    grossSales: decimal("gross_sales", { precision: 10, scale: 2 }).notNull().default("0"),
+    cashbackPercentage: decimal("cashback_percentage", { precision: 5, scale: 2 }).notNull().default("0"),
+    cashbackAmount: decimal("cashback_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+    status: text("status").notNull().default("pending"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    prescriberMonthUnique: uniqueIndex("cashback_balances_prescriber_month_idx").on(
+      table.prescriberId,
+      table.month
+    ),
+  })
+);
+
+export const insertCashbackBalanceSchema = createInsertSchema(cashbackBalances).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCashbackBalance = z.infer<typeof insertCashbackBalanceSchema>;
+export type CashbackBalance = typeof cashbackBalances.$inferSelect;
+
+export const cashbackPayments = pgTable("cashback_payments", {
+  id: serial("id").primaryKey(),
+  prescriberId: integer("prescriber_id")
+    .references(() => prescribers.id, { onDelete: "cascade" })
+    .notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentDate: text("payment_date").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertCashbackPaymentSchema = createInsertSchema(cashbackPayments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCashbackPayment = z.infer<typeof insertCashbackPaymentSchema>;
+export type CashbackPayment = typeof cashbackPayments.$inferSelect;

@@ -1,0 +1,49 @@
+# Contexto
+O projeto PrescriberManager usa Node.js + Express + SQLite. Acabamos de criar duas tabelas novas: `cashback_balances` (com colunas: id, prescriber_id, month, gross_sales, cashback_percentage, cashback_amount, status, created_at, updated_at) e `cashback_payments` (com colunas: id, prescriber_id, amount, payment_date, notes, created_at). Os prescritores têm um campo `type` onde "C" = Cashback. O campo `commission_percentage` do prescritor define o % de cashback. Já existem relatórios de vendas (orders/reports) com valores por prescritor e data.
+
+## Tarefa
+Implemente os endpoints de API para o sistema de cashback, incluindo consulta de saldo, cálculo automático a partir dos relatórios, e registro de pagamentos.
+
+### Requisitos
+- **GET /api/cashback/:prescriberId** — Retorna o resumo de cashback do prescritor:
+  - `total_available` (soma de cashback_amount onde status = 'available')
+  - `total_pending` (soma de cashback_amount onde status = 'pending')
+  - `total_paid` (soma de amount da tabela cashback_payments)
+  - `balance` (total_available - total_paid)
+  - `monthly_breakdown` (array com { month, gross_sales, cashback_percentage, cashback_amount, status })
+  - `payments_history` (array com { id, amount, payment_date, notes })
+- **POST /api/cashback/calculate** — Recebe `{ prescriber_id, month }` e calcula o cashback daquele mês:
+  - Busca todos os pedidos/relatórios daquele prescritor naquele mês
+  - Soma o valor bruto de vendas
+  - Aplica o commission_percentage do prescritor como cashback_percentage
+  - Faz UPSERT na tabela cashback_balances (atualiza se já existir para aquele mês)
+- **POST /api/cashback/calculate-from-report** — Recebe os dados quando um relatório CSV é subido:
+  - Para cada prescritor tipo "C" presente no relatório, calcula e salva o cashback do mês
+  - Retorna um resumo do que foi calculado
+- **POST /api/cashback/payments** — Registra um pagamento de cashback:
+  - Recebe `{ prescriber_id, amount, payment_date, notes }`
+  - Valida que o valor não excede o saldo disponível (balance)
+  - Insere na tabela cashback_payments
+- **GET /api/cashback/all** — Retorna lista de TODOS os prescritores tipo "C" com seus saldos resumidos:
+  - Usado para a aba geral de Cashback
+  - Retorna: { prescriber_id, name, specialty, total_available, total_pending, total_paid, balance }
+- Integre o cálculo automático de cashback no fluxo existente de upload de relatórios: quando um relatório é processado, chame automaticamente o cálculo de cashback para prescritores tipo "C"
+- Todos os valores monetários devem ser tratados como REAL (float) com 2 casas decimais
+
+### Design / Diretrizes de UI
+- N/A (este prompt é apenas backend)
+
+### Restrições
+- NÃO modifique o schema das tabelas (já criado no Prompt 1)
+- NÃO modifique os endpoints existentes da API
+- NÃO altere nenhum arquivo de frontend
+- Preserve o fluxo existente de upload de relatórios, apenas ADICIONE o cálculo de cashback como etapa extra
+
+### Critérios de Aceite
+- [ ] GET /api/cashback/:prescriberId retorna o resumo correto com breakdown mensal e histórico de pagamentos
+- [ ] POST /api/cashback/calculate calcula e salva corretamente o cashback de um mês específico
+- [ ] POST /api/cashback/calculate-from-report processa todos os prescritores "C" de um relatório
+- [ ] POST /api/cashback/payments registra pagamento e valida que não excede o saldo
+- [ ] GET /api/cashback/all retorna a lista de todos os prescritores "C" com saldos
+- [ ] Ao subir um relatório CSV, o cashback é calculado automaticamente para prescritores tipo "C"
+- [ ] Valores monetários têm sempre 2 casas decimais

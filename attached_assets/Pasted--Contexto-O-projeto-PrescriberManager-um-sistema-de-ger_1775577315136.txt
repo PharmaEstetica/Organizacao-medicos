@@ -1,0 +1,38 @@
+# Contexto
+O projeto PrescriberManager é um sistema de gerenciamento de farmácia de manipulação. Usa React + Vite + TailwindCSS no frontend, Node.js + Express + SQLite no backend, hospedado no Replit. Já existe uma tabela de prescritores (prescribers) com campos como id, name, specialty, type (onde "P" = Porcentagem normal, "C" = Cashback), e commission_percentage. Já existe uma tabela de relatórios/pedidos (orders ou reports) que contém dados de vendas por prescritor com valores em R$.
+
+## Tarefa
+Crie uma nova tabela no banco SQLite chamada `cashback_balances` para armazenar o saldo de cashback acumulado de cada prescritor marcado como tipo "C" (Cashback).
+
+### Requisitos
+- Tabela `cashback_balances` com as colunas:
+  - `id` INTEGER PRIMARY KEY AUTOINCREMENT
+  - `prescriber_id` INTEGER NOT NULL (FK para tabela de prescritores)
+  - `month` TEXT NOT NULL (formato "YYYY-MM", ex: "2026-04")
+  - `gross_sales` REAL DEFAULT 0 (valor bruto de vendas naquele mês)
+  - `cashback_percentage` REAL DEFAULT 0 (% de cashback aplicável)
+  - `cashback_amount` REAL DEFAULT 0 (valor de cashback gerado = gross_sales * cashback_percentage / 100)
+  - `status` TEXT DEFAULT 'pending' (valores possíveis: 'pending', 'available', 'paid')
+  - `created_at` TEXT DEFAULT (datetime('now'))
+  - `updated_at` TEXT DEFAULT (datetime('now'))
+- Crie também uma tabela `cashback_payments` para registrar pagamentos/retiradas:
+  - `id` INTEGER PRIMARY KEY AUTOINCREMENT
+  - `prescriber_id` INTEGER NOT NULL
+  - `amount` REAL NOT NULL (valor pago)
+  - `payment_date` TEXT NOT NULL
+  - `notes` TEXT
+  - `created_at` TEXT DEFAULT (datetime('now'))
+- Adicione índice em `cashback_balances` para (prescriber_id, month) como UNIQUE
+- Rode as migrations automaticamente na inicialização do servidor
+
+### Restrições
+- NÃO modifique a tabela de prescritores existente
+- NÃO modifique a tabela de pedidos/relatórios existente
+- NÃO altere nenhum arquivo de frontend
+- Preserve todas as rotas existentes da API
+
+### Critérios de Aceite
+- [ ] Tabela `cashback_balances` existe no banco após iniciar o servidor
+- [ ] Tabela `cashback_payments` existe no banco após iniciar o servidor
+- [ ] Constraint UNIQUE em (prescriber_id, month) impede duplicatas
+- [ ] Servidor inicia sem erros com as novas tabelas
