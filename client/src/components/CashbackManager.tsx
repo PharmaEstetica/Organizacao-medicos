@@ -32,7 +32,6 @@ import {
   CreditCard,
   Trash2,
   AlertCircle,
-  MinusCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -128,28 +127,46 @@ function DeleteWithPasswordDialog({
   onConfirm: (password: string) => Promise<void>;
   onCancel: () => void;
 }) {
-  const { toast } = useToast();
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const reset = () => {
+    setPassword("");
+    setErrorMsg("");
+    setLoading(false);
+  };
+
+  const handleCancel = () => {
+    reset();
+    onCancel();
+  };
 
   const handleConfirm = async () => {
     if (!password) {
-      toast({ title: "Senha obrigatória", variant: "destructive" });
+      setErrorMsg("Digite a senha para confirmar.");
       return;
     }
+    setErrorMsg("");
     setLoading(true);
     try {
       await onConfirm(password);
+      reset();
     } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+      const msg: string = err.message ?? "Erro ao excluir.";
+      if (msg.toLowerCase().includes("senha") || msg.toLowerCase().includes("incorreta") || msg.toLowerCase().includes("invalid")) {
+        setErrorMsg("Senha incorreta.");
+      } else {
+        setErrorMsg(msg);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onCancel()}>
-      <DialogContent className="sm:max-w-[380px]">
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleCancel(); }}>
+      <DialogContent className="sm:max-w-[360px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-destructive">
             <AlertCircle className="h-5 w-5" />
@@ -159,22 +176,31 @@ function DeleteWithPasswordDialog({
         </DialogHeader>
         <div className="space-y-3 pt-2">
           <div className="space-y-1.5">
-            <Label className="text-sm">Senha de exclusão</Label>
+            <Label className="text-sm">Para excluir este registro, digite a senha de administrador:</Label>
             <Input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => { setPassword(e.target.value); setErrorMsg(""); }}
               placeholder="Digite a senha"
-              className="rounded-sm"
+              className={`rounded-sm ${errorMsg ? "border-red-500 focus-visible:ring-red-400" : ""}`}
               onKeyDown={(e) => e.key === "Enter" && handleConfirm()}
               data-testid="input-delete-password"
+              autoFocus
             />
+            {errorMsg && (
+              <p className="text-xs font-medium text-red-500" data-testid="text-delete-error">{errorMsg}</p>
+            )}
           </div>
           <div className="flex gap-2 pt-1">
-            <Button variant="outline" className="rounded-sm flex-1" onClick={onCancel} disabled={loading}>
+            <Button variant="outline" className="rounded-sm flex-1" onClick={handleCancel} disabled={loading}>
               Cancelar
             </Button>
-            <Button variant="destructive" className="rounded-sm flex-1" onClick={handleConfirm} disabled={loading} data-testid="button-confirm-delete">
+            <Button
+              className="rounded-sm flex-1 bg-red-500 hover:bg-red-600 text-white"
+              onClick={handleConfirm}
+              disabled={loading}
+              data-testid="button-confirm-delete"
+            >
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
               Excluir
             </Button>
@@ -394,13 +420,27 @@ function DetailModal({
           ) : detail ? (
             <div className="space-y-6 mt-2">
               {/* Saldo em destaque */}
-              <div className="rounded-sm border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/20 px-6 py-5 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-green-700 dark:text-green-300">Saldo Disponível</p>
-                  <p className="text-3xl font-bold text-green-700 dark:text-green-300 mt-1">{fmt(detail.balance)}</p>
-                </div>
-                <Wallet className="h-10 w-10 text-green-400" />
-              </div>
+              {(() => {
+                const hasBalance = detail.balance > 0;
+                return (
+                  <div className={`rounded-sm border px-6 py-5 flex items-center justify-between transition-colors duration-300 ${
+                    hasBalance
+                      ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/20"
+                      : "border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900/20"
+                  }`}>
+                    <div>
+                      <p className={`text-sm font-medium ${hasBalance ? "text-green-700 dark:text-green-300" : "text-gray-500 dark:text-gray-400"}`}>
+                        Saldo Disponível
+                      </p>
+                      <p className={`text-3xl font-bold mt-1 transition-colors duration-300 ${hasBalance ? "text-green-700 dark:text-green-300" : "text-gray-500 dark:text-gray-400"}`}>
+                        {fmt(detail.balance)}
+                      </p>
+                      {!hasBalance && <p className="text-xs text-gray-400 mt-1">Sem saldo disponível</p>}
+                    </div>
+                    <Wallet className={`h-10 w-10 transition-colors duration-300 ${hasBalance ? "text-green-400" : "text-gray-300"}`} />
+                  </div>
+                );
+              })()}
 
               {/* Mini stats */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -447,17 +487,20 @@ function DetailModal({
                             <TableCell className="text-right text-sm text-muted-foreground">{fmt(b.gross_sales)}</TableCell>
                             <TableCell className="text-right text-sm font-mono">{b.cashback_percentage.toFixed(1)}%</TableCell>
                             <TableCell className="text-right text-sm">{fmt(b.cashback_amount)}</TableCell>
-                            <TableCell className="text-right text-sm text-red-500">
+                            <TableCell className="text-right text-sm">
                               {b.deductions > 0 ? (
-                                <span className="flex items-center justify-end gap-1">
-                                  <MinusCircle className="h-3 w-3" />
-                                  {fmt(b.deductions)}
+                                <span className="text-red-500 font-medium">
+                                  -{fmt(b.deductions)}
                                 </span>
                               ) : (
                                 <span className="text-muted-foreground">—</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-right text-sm font-semibold text-green-600">{fmt(b.net_cashback)}</TableCell>
+                            <TableCell className="text-right text-sm font-semibold">
+                              <span className={b.net_cashback > 0 ? "text-green-600" : "text-gray-400"}>
+                                {fmt(b.net_cashback)}
+                              </span>
+                            </TableCell>
                             <TableCell><StatusBadge status={b.status} /></TableCell>
                             <TableCell className="text-right">
                               <Button
@@ -519,12 +562,16 @@ function DetailModal({
                       onCancel={() => setShowPaymentForm(false)}
                     />
                   </div>
+                ) : detail.balance <= 0 ? (
+                  <div className="rounded-sm border border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-center gap-2 text-sm text-gray-400 cursor-not-allowed" data-testid="button-open-payment-form">
+                    <Plus className="h-4 w-4" />
+                    Registrar Pagamento — Sem saldo disponível
+                  </div>
                 ) : (
                   <Button
                     variant="outline"
                     className="rounded-sm w-full gap-2"
                     onClick={() => setShowPaymentForm(true)}
-                    disabled={detail.balance <= 0}
                     data-testid="button-open-payment-form"
                   >
                     <Plus className="h-4 w-4" />
