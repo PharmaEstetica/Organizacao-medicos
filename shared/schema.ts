@@ -198,6 +198,8 @@ export const cashbackBalances = pgTable(
     grossSales: decimal("gross_sales", { precision: 10, scale: 2 }).notNull().default("0"),
     cashbackPercentage: decimal("cashback_percentage", { precision: 5, scale: 2 }).notNull().default("0"),
     cashbackAmount: decimal("cashback_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+    deductions: decimal("deductions", { precision: 10, scale: 2 }).notNull().default("0"),
+    netCashback: decimal("net_cashback", { precision: 10, scale: 2 }).notNull().default("0"),
     status: text("status").notNull().default("pending"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

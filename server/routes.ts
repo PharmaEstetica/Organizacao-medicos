@@ -2,8 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, and, gte, lt, sql } from "drizzle-orm";
-import { csvOrders } from "@shared/schema";
+import { eq, and, gte, lt, sql, ne, isNull, or } from "drizzle-orm";
+import { csvOrders, manualOrders } from "@shared/schema";
 import pkg from "pg";
 const { Pool } = pkg;
 import {
@@ -346,9 +346,21 @@ export async function registerRoutes(
               )
             );
 
+          const manualOrderRows = await db
+            .select()
+            .from(manualOrders)
+            .where(
+              and(
+                eq(manualOrders.prescriberId, prescriber.id),
+                gte(manualOrders.orderDate, startDate),
+                lt(manualOrders.orderDate, endDate)
+              )
+            );
+
           const grossSales = orders.reduce((s, o) => s + parseFloat(o.netValue), 0);
+          const deductions = manualOrderRows.reduce((s, o) => s + parseFloat(o.netValue), 0);
           const cashbackPercentage = parseFloat(prescriber.commissionPercentage);
-          await storage.upsertCashbackBalance(prescriber.id, month, grossSales, cashbackPercentage);
+          await storage.upsertCashbackBalance(prescriber.id, month, grossSales, cashbackPercentage, deductions);
         }
       } catch (cashbackErr) {
         console.error('[cashback] auto-calculate error:', cashbackErr);
@@ -468,10 +480,22 @@ export async function registerRoutes(
           )
         );
 
+      const manualOrderRows = await db
+        .select()
+        .from(manualOrders)
+        .where(
+          and(
+            eq(manualOrders.prescriberId, prescriber.id),
+            gte(manualOrders.orderDate, startDate),
+            lt(manualOrders.orderDate, endDate)
+          )
+        );
+
       const grossSales = orders.reduce((s, o) => s + parseFloat(o.netValue), 0);
+      const deductions = manualOrderRows.reduce((s, o) => s + parseFloat(o.netValue), 0);
       const cashbackPercentage = parseFloat(prescriber.commissionPercentage);
       const balance = await storage.upsertCashbackBalance(
-        prescriber.id, month, grossSales, cashbackPercentage
+        prescriber.id, month, grossSales, cashbackPercentage, deductions
       );
       res.json(balance);
     } catch (error) {
@@ -510,6 +534,32 @@ export async function registerRoutes(
       res.json({ processed: results.length, results });
     } catch (error) {
       res.status(500).json({ error: "Failed to calculate cashback from report" });
+    }
+  });
+
+  app.delete("/api/cashback/balance/:id", async (req, res) => {
+    try {
+      const { password } = req.body;
+      if (!password) return res.status(400).json({ error: "Senha é obrigatória" });
+      const isValid = await storage.verifyPassword('excluir', password);
+      if (!isValid) return res.status(401).json({ error: "Senha incorreta" });
+      await storage.deleteCashbackBalance(Number(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete cashback balance" });
+    }
+  });
+
+  app.delete("/api/cashback/payments/:id", async (req, res) => {
+    try {
+      const { password } = req.body;
+      if (!password) return res.status(400).json({ error: "Senha é obrigatória" });
+      const isValid = await storage.verifyPassword('excluir', password);
+      if (!isValid) return res.status(401).json({ error: "Senha incorreta" });
+      await storage.deleteCashbackPayment(Number(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete cashback payment" });
     }
   });
 
@@ -674,11 +724,15 @@ export async function registerRoutes(
           gross_sales DECIMAL(10,2) NOT NULL DEFAULT '0',
           cashback_percentage DECIMAL(5,2) NOT NULL DEFAULT '0',
           cashback_amount DECIMAL(10,2) NOT NULL DEFAULT '0',
+          deductions DECIMAL(10,2) NOT NULL DEFAULT '0',
+          net_cashback DECIMAL(10,2) NOT NULL DEFAULT '0',
           status TEXT NOT NULL DEFAULT 'pending',
           created_at TIMESTAMP NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMP NOT NULL DEFAULT NOW()
         )
       `);
+      await prodClient.query(`ALTER TABLE cashback_balances ADD COLUMN IF NOT EXISTS deductions DECIMAL(10,2) NOT NULL DEFAULT '0'`);
+      await prodClient.query(`ALTER TABLE cashback_balances ADD COLUMN IF NOT EXISTS net_cashback DECIMAL(10,2) NOT NULL DEFAULT '0'`);
       await prodClient.query(`
         CREATE UNIQUE INDEX IF NOT EXISTS cashback_balances_prescriber_month_idx
         ON cashback_balances(prescriber_id, month)

@@ -69,6 +69,14 @@ shared/               # Shared code between client and server
 - **Session Management**: Once unlocked, areas remain accessible for the browser session (sessionStorage)
 - **Default Password**: `kaedy1227` for all areas (configurable in Settings)
 
+## Cashback System (bondType = 'C')
+- **Tables**: `cashback_balances` (monthly entries) + `cashback_payments` (payment records)
+- **Columns in cashback_balances**: `gross_sales`, `cashback_percentage`, `cashback_amount` (bruto), `deductions` (pedidos manuais do mês), `net_cashback` = max(0, cashback_amount - deductions)
+- **Balance calculation**: sum(net_cashback for all months) - total_paid
+- **Auto-calculation**: triggered on `POST /api/reports` for 'C' prescribers; manual recalc via `POST /api/cashback/calculate`
+- **DELETE endpoints**: `DELETE /api/cashback/balance/:id` and `DELETE /api/cashback/payments/:id` require `excluir` password in request body
+- **DB Sync**: sync endpoint also runs `ALTER TABLE cashback_balances ADD COLUMN IF NOT EXISTS` for deductions/net_cashback on prod
+
 ## External Dependencies
 
 ### Database

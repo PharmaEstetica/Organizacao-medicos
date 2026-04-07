@@ -1,0 +1,71 @@
+# Contexto
+O projeto PrescriberManager usa React + Vite + TailwindCSS. O sistema de cashback já tem: modal "Ver Detalhes" com histórico mensal, cards de saldo (Disponível, Pendente, Total Pago), e botão "Registrar Pagamento". O backend agora retorna campos atualizados: `balance` (saldo real disponível = net_cashback - pagamentos), `total_deductions` (débitos de pedidos), `net_cashback` (cashback líquido após débitos). Existe validação de senha no backend para exclusão (mesma senha de Configurações).
+
+## Tarefa
+Adicione ícones de exclusão (lixeira) com modal de confirmação por senha nos registros de cashback, e garanta que a UI atualize o saldo disponível corretamente após pagamentos e exclusões.
+
+### Requisitos
+
+**Lixeira com validação de senha:**
+- No modal "Ver Detalhes" do prescritor, na tabela de HISTÓRICO MENSAL, adicionar um ícone de lixeira (Trash2 do Lucide React) na última coluna de cada linha
+- Ao clicar na lixeira, abrir um mini-modal de confirmação com:
+  - Texto: "Para excluir este registro, digite a senha de administrador:"
+  - Campo de senha (input type="password")
+  - Botão "Cancelar" e botão "Excluir" (vermelho)
+  - Se a senha estiver errada, mostrar mensagem de erro inline "Senha incorreta" em vermelho, sem fechar o modal
+  - Se correta, deletar o registro, fechar o modal e atualizar a lista
+- Mesma lixeira no histórico de pagamentos, com a mesma lógica de senha
+
+**Atualização do saldo após pagamento:**
+- Após registrar um pagamento com sucesso:
+  - O card "Saldo Disponível" (verde grande no topo) deve atualizar imediatamente com o novo balance
+  - O card "Total Pago" deve atualizar com o novo total
+  - O card "Disponível" (menor) deve refletir o balance atualizado
+  - A lista de pagamentos deve mostrar o novo pagamento sem recarregar a página
+- Se o saldo disponível chegar a R$ 0,00:
+  - O card de saldo deve mudar de verde para cinza
+  - O botão "Registrar Pagamento" deve ficar desabilitado (cinza, cursor not-allowed)
+  - Tooltip ou texto: "Sem saldo disponível"
+
+**Exibição de débitos no histórico mensal:**
+- Adicionar uma coluna "Débitos" na tabela de histórico mensal que mostra o valor de deductions daquele mês (em vermelho, formato -R$ X.XXX,XX)
+- Adicionar uma coluna "Cashback Líquido" que mostra o net_cashback (se positivo em verde, se zero em cinza)
+- A coluna "Cashback" existente continua mostrando o valor bruto para referência
+
+**Atualização na lista geral da aba Cashback:**
+- Na aba Cashback dentro de Cadastros, o "Saldo disponível" de cada prescritor deve refletir o `balance` (já com débitos e pagamentos descontados)
+- Cards totalizadores no topo devem somar os balances corretos
+
+### Design / Diretrizes de UI
+- Ícone de lixeira: Trash2 do Lucide React, cor cinza (#9ca3af) por padrão, vermelho (#ef4444) no hover
+- Tamanho do ícone: 16px (w-4 h-4)
+- Mini-modal de senha: centralizado, overlay escuro, largura máxima 360px, cantos arredondados
+- Campo de senha: borda cinza, focus com borda azul
+- Botão "Excluir": fundo vermelho (#ef4444), texto branco, hover mais escuro
+- Mensagem de erro: texto vermelho (#ef4444), fonte pequena, abaixo do campo de senha
+- Coluna "Débitos": valores em vermelho (#ef4444) com prefixo "-"
+- Coluna "Cashback Líquido": verde (#22c55e) se positivo, cinza (#6b7280) se zero
+- Card de saldo R$ 0,00: fundo cinza claro (#f3f4f6), texto cinza (#6b7280)
+- Transições suaves ao atualizar valores (opacity transition 300ms)
+- Manter consistência com o design existente do sistema
+- Mobile-first: em telas pequenas, colunas extras podem ser ocultadas e visíveis ao expandir
+
+### Restrições
+- NÃO modifique o backend ou schema do banco
+- NÃO modifique as abas existentes (Buscar, Cadastros, Pedidos, Fórmulas, Relatórios, Configurações)
+- NÃO altere o fluxo de geração de relatórios
+- NÃO altere o modal de "Vincular CSV ao Cadastro"
+- Preserve todo o comportamento existente da aba Cashback e do modal Ver Detalhes
+
+### Critérios de Aceite
+- [ ] Ícone de lixeira aparece em cada linha do histórico mensal e do histórico de pagamentos
+- [ ] Ao clicar na lixeira, abre modal pedindo senha de administrador
+- [ ] Senha correta deleta o registro e atualiza a lista imediatamente
+- [ ] Senha incorreta mostra "Senha incorreta" em vermelho sem fechar o modal
+- [ ] Após registrar pagamento, card de Saldo Disponível atualiza sem recarregar a página
+- [ ] Após registrar pagamento, card de Total Pago atualiza sem recarregar a página
+- [ ] Com saldo R$ 0,00, card fica cinza e botão "Registrar Pagamento" fica desabilitado
+- [ ] Coluna "Débitos" mostra valores em vermelho no histórico mensal
+- [ ] Coluna "Cashback Líquido" mostra valores corretos (verde se positivo, cinza se zero)
+- [ ] Na lista geral da aba Cashback, saldos refletem débitos e pagamentos já descontados
+- [ ] Valores em formato brasileiro (R$ X.XXX,XX) em todos os campos novos

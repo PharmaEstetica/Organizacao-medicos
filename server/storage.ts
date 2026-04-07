@@ -41,15 +41,21 @@ export interface CashbackSummary {
   prescriber_id: number;
   name: string;
   specialty: string;
+  total_cashback_earned: number;
+  total_deductions: number;
+  total_net_cashback: number;
   total_available: number;
   total_pending: number;
   total_paid: number;
   balance: number;
   monthly_breakdown: {
+    id: number;
     month: string;
     gross_sales: number;
     cashback_percentage: number;
     cashback_amount: number;
+    deductions: number;
+    net_cashback: number;
     status: string;
   }[];
   payments_history: {
@@ -116,11 +122,13 @@ export interface IStorage {
   verifyPassword(area: string, password: string): Promise<boolean>;
   updatePassword(area: string, newPassword: string): Promise<void>;
 
-  upsertCashbackBalance(prescriberId: number, month: string, grossSales: number, cashbackPercentage: number): Promise<CashbackBalance>;
+  upsertCashbackBalance(prescriberId: number, month: string, grossSales: number, cashbackPercentage: number, deductions?: number): Promise<CashbackBalance>;
   getCashbackSummary(prescriberId: number): Promise<CashbackSummary>;
   getAllCashbackSummaries(): Promise<Omit<CashbackSummary, 'monthly_breakdown' | 'payments_history'>[]>;
   createCashbackPayment(prescriberId: number, amount: number, paymentDate: string, notes?: string): Promise<CashbackPayment>;
   getCashbackAvailableBalance(prescriberId: number): Promise<number>;
+  deleteCashbackBalance(id: number): Promise<void>;
+  deleteCashbackPayment(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -483,9 +491,11 @@ export class DatabaseStorage implements IStorage {
     prescriberId: number,
     month: string,
     grossSales: number,
-    cashbackPercentage: number
+    cashbackPercentage: number,
+    deductions: number = 0
   ): Promise<CashbackBalance> {
     const cashbackAmount = parseFloat((grossSales * cashbackPercentage / 100).toFixed(2));
+    const netCashback = parseFloat(Math.max(0, cashbackAmount - deductions).toFixed(2));
     const existing = await db
       .select()
       .from(cashbackBalances)
@@ -498,6 +508,8 @@ export class DatabaseStorage implements IStorage {
           grossSales: grossSales.toFixed(2),
           cashbackPercentage: cashbackPercentage.toFixed(2),
           cashbackAmount: cashbackAmount.toFixed(2),
+          deductions: deductions.toFixed(2),
+          netCashback: netCashback.toFixed(2),
           updatedAt: new Date(),
         })
         .where(and(eq(cashbackBalances.prescriberId, prescriberId), eq(cashbackBalances.month, month)))
@@ -512,6 +524,8 @@ export class DatabaseStorage implements IStorage {
           grossSales: grossSales.toFixed(2),
           cashbackPercentage: cashbackPercentage.toFixed(2),
           cashbackAmount: cashbackAmount.toFixed(2),
+          deductions: deductions.toFixed(2),
+          netCashback: netCashback.toFixed(2),
           status: 'available',
         })
         .returning();
@@ -535,28 +549,37 @@ export class DatabaseStorage implements IStorage {
       .where(eq(cashbackPayments.prescriberId, prescriberId))
       .orderBy(desc(cashbackPayments.paymentDate));
 
+    const total_cashback_earned = balances.reduce((s, b) => s + parseFloat(b.cashbackAmount), 0);
+    const total_deductions = balances.reduce((s, b) => s + parseFloat(b.deductions ?? '0'), 0);
+    const total_net_cashback = balances.reduce((s, b) => s + parseFloat(b.netCashback ?? '0'), 0);
     const total_available = balances
       .filter(b => b.status === 'available')
-      .reduce((s, b) => s + parseFloat(b.cashbackAmount), 0);
+      .reduce((s, b) => s + parseFloat(b.netCashback ?? '0'), 0);
     const total_pending = balances
       .filter(b => b.status === 'pending')
-      .reduce((s, b) => s + parseFloat(b.cashbackAmount), 0);
+      .reduce((s, b) => s + parseFloat(b.netCashback ?? '0'), 0);
     const total_paid = payments.reduce((s, p) => s + parseFloat(p.amount), 0);
-    const balance = parseFloat((total_available - total_paid).toFixed(2));
+    const balance = parseFloat((total_net_cashback - total_paid).toFixed(2));
 
     return {
       prescriber_id: prescriberId,
       name: prescriber.name,
       specialty: prescriber.specialty,
+      total_cashback_earned: parseFloat(total_cashback_earned.toFixed(2)),
+      total_deductions: parseFloat(total_deductions.toFixed(2)),
+      total_net_cashback: parseFloat(total_net_cashback.toFixed(2)),
       total_available: parseFloat(total_available.toFixed(2)),
       total_pending: parseFloat(total_pending.toFixed(2)),
       total_paid: parseFloat(total_paid.toFixed(2)),
       balance,
       monthly_breakdown: balances.map(b => ({
+        id: b.id,
         month: b.month,
         gross_sales: parseFloat(b.grossSales),
         cashback_percentage: parseFloat(b.cashbackPercentage),
         cashback_amount: parseFloat(b.cashbackAmount),
+        deductions: parseFloat(b.deductions ?? '0'),
+        net_cashback: parseFloat(b.netCashback ?? '0'),
         status: b.status,
       })),
       payments_history: payments.map(p => ({
@@ -586,19 +609,25 @@ export class DatabaseStorage implements IStorage {
         .from(cashbackPayments)
         .where(eq(cashbackPayments.prescriberId, p.id));
 
+      const total_cashback_earned = balances.reduce((s, b) => s + parseFloat(b.cashbackAmount), 0);
+      const total_deductions = balances.reduce((s, b) => s + parseFloat(b.deductions ?? '0'), 0);
+      const total_net_cashback = balances.reduce((s, b) => s + parseFloat(b.netCashback ?? '0'), 0);
       const total_available = balances
         .filter(b => b.status === 'available')
-        .reduce((s, b) => s + parseFloat(b.cashbackAmount), 0);
+        .reduce((s, b) => s + parseFloat(b.netCashback ?? '0'), 0);
       const total_pending = balances
         .filter(b => b.status === 'pending')
-        .reduce((s, b) => s + parseFloat(b.cashbackAmount), 0);
+        .reduce((s, b) => s + parseFloat(b.netCashback ?? '0'), 0);
       const total_paid = payments.reduce((s, pmt) => s + parseFloat(pmt.amount), 0);
-      const balance = parseFloat((total_available - total_paid).toFixed(2));
+      const balance = parseFloat((total_net_cashback - total_paid).toFixed(2));
 
       results.push({
         prescriber_id: p.id,
         name: p.name,
         specialty: p.specialty,
+        total_cashback_earned: parseFloat(total_cashback_earned.toFixed(2)),
+        total_deductions: parseFloat(total_deductions.toFixed(2)),
+        total_net_cashback: parseFloat(total_net_cashback.toFixed(2)),
         total_available: parseFloat(total_available.toFixed(2)),
         total_pending: parseFloat(total_pending.toFixed(2)),
         total_paid: parseFloat(total_paid.toFixed(2)),
@@ -630,15 +659,23 @@ export class DatabaseStorage implements IStorage {
     const balances = await db
       .select()
       .from(cashbackBalances)
-      .where(and(eq(cashbackBalances.prescriberId, prescriberId), eq(cashbackBalances.status, 'available')));
+      .where(eq(cashbackBalances.prescriberId, prescriberId));
     const payments = await db
       .select()
       .from(cashbackPayments)
       .where(eq(cashbackPayments.prescriberId, prescriberId));
 
-    const total_available = balances.reduce((s, b) => s + parseFloat(b.cashbackAmount), 0);
+    const total_net_cashback = balances.reduce((s, b) => s + parseFloat(b.netCashback ?? '0'), 0);
     const total_paid = payments.reduce((s, p) => s + parseFloat(p.amount), 0);
-    return parseFloat((total_available - total_paid).toFixed(2));
+    return parseFloat((total_net_cashback - total_paid).toFixed(2));
+  }
+
+  async deleteCashbackBalance(id: number): Promise<void> {
+    await db.delete(cashbackBalances).where(eq(cashbackBalances.id, id));
+  }
+
+  async deleteCashbackPayment(id: number): Promise<void> {
+    await db.delete(cashbackPayments).where(eq(cashbackPayments.id, id));
   }
 }
 
