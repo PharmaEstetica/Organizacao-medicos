@@ -1,0 +1,63 @@
+# Contexto
+O projeto PrescriberManager usa Node.js + Express + SQLite. O sistema de cashback já está implementado com as tabelas `cashback_balances` e `cashback_payments`. Prescritores tipo "C" = Cashback. Existe uma senha de acesso para a área de "Configurações" que já é validada no sistema. O fluxo atual de geração de relatórios funciona assim:
+- Um CSV é importado com pedidos
+- O prescritor é selecionado e vinculado
+- O relatório calcula: Total Efetivado (vendas aprovadas), Desconto (comissão %), e Saldo Final
+- O Saldo Final já considera DÉBITOS de pedidos feitos pelo prescritor na área "Pedidos" (ex: compras do prescritor que são descontadas)
+- Exemplo real: Vendas efetivadas = R$ 146,40, Comissão 15% = R$ 21,96, Compras do prescritor = -R$ 100,00, Saldo Final = -R$ 78,04
+
+O PROBLEMA ATUAL: O cashback está sendo calculado sobre o valor bruto de comissão (R$ 21,96) sem considerar que houve débitos de pedidos. O saldo disponível de cashback mostra R$ 21,96 quando na verdade deveria considerar o saldo final do relatório.
+
+## Tarefa
+Corrija a lógica de cálculo de cashback e implemente 2 funcionalidades novas: exclusão de registro com validação de senha e atualização correta do saldo ao registrar pagamento.
+
+### Requisitos
+
+**CORREÇÃO 1 — Cálculo de cashback usando saldo final do relatório:**
+- Quando o relatório é gerado para um prescritor tipo "C", o cashback disponível deve ser baseado no SALDO FINAL do relatório, NÃO no valor bruto da comissão
+- Fluxo correto:
+  - Calcular a comissão normalmente (ex: 15% de R$ 146,40 = R$ 21,96) — este valor continua aparecendo como "Cashback" no histórico mensal para referência
+  - Verificar se há débitos de pedidos do prescritor naquele mês (compras feitas na área "Pedidos")
+  - O `cashback_amount` salvo na tabela `cashback_balances` deve ser o valor de comissão calculado (R$ 21,96)
+  - Adicionar um novo campo `deductions` na tabela `cashback_balances` para armazenar o valor dos débitos de pedidos (ex: R$ 100,00)
+  - Adicionar um novo campo `net_cashback` na tabela `cashback_balances` que é = cashback_amount - deductions (ex: R$ 21,96 - R$ 100,00 = -R$ 78,04)
+  - Se net_cashback for negativo, o saldo disponível de cashback para aquele mês é R$ 0,00 e o débito excedente deve ser registrado/anotado
+  - O saldo disponível total deve ser a soma dos `net_cashback` positivos de todos os meses
+- Ao gerar o relatório, buscar automaticamente os pedidos do prescritor na área de Pedidos daquele mês e usá-los como deductions
+
+**CORREÇÃO 2 — Pagamento diminui saldo disponível:**
+- Quando um pagamento é registrado via POST /api/cashback/payments, o `total_available` (saldo disponível) deve diminuir proporcionalmente
+- O endpoint GET /api/cashback/:prescriberId deve retornar:
+  - `total_cashback_earned` (soma de todos cashback_amount — valor bruto para referência)
+  - `total_deductions` (soma de todos os débitos de pedidos)
+  - `total_net_cashback` (soma de net_cashback positivos)
+  - `total_paid` (soma de pagamentos já feitos)
+  - `balance` = total_net_cashback - total_paid (este é o saldo real disponível)
+- Se balance for 0 ou negativo, não permitir novos pagamentos
+
+**FUNCIONALIDADE 3 — Exclusão de registro de cashback com senha:**
+- Criar endpoint DELETE /api/cashback/:id que:
+  - Recebe no body `{ password: "..." }`
+  - Valida a senha contra a MESMA senha usada para acessar "Configurações"
+  - Se a senha estiver correta, deleta o registro de cashback_balances com aquele id
+  - Se incorreta, retorna erro 401 com mensagem "Senha incorreta"
+- Criar endpoint DELETE /api/cashback/payments/:id que:
+  - Também requer senha no body
+  - Deleta um registro de pagamento
+  - Ao deletar pagamento, o saldo disponível deve ser recalculado automaticamente
+
+### Restrições
+- NÃO modifique o fluxo existente de geração de relatórios — apenas ADICIONE a busca de débitos de pedidos como etapa extra
+- NÃO modifique a lógica de cálculo de comissão existente no relatório (continua sendo 15% sobre vendas)
+- NÃO altere nenhum arquivo de frontend neste prompt
+- Preserve todos os endpoints existentes da API
+- A migração do banco deve adicionar as novas colunas (`deductions`, `net_cashback`) à tabela existente `cashback_balances` sem perder dados
+
+### Critérios de Aceite
+- [ ] Ao gerar relatório de prescritor "C" com pedidos/compras, o cashback salvo inclui deductions e net_cashback corretos
+- [ ] Se prescritor "C" tem R$ 21,96 de comissão e R$ 100,00 de compras, net_cashback = R$ 0,00 (não negativo no saldo disponível)
+- [ ] GET /api/cashback/:prescriberId retorna balance = net_cashback_total - total_paid
+- [ ] Após registrar pagamento, o balance diminui corretamente
+- [ ] DELETE /api/cashback/:id com senha correta deleta o registro
+- [ ] DELETE /api/cashback/:id com senha incorreta retorna 401
+- [ ] Pagamento não é permitido se balance <= 0

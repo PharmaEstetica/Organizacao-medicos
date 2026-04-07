@@ -665,6 +665,35 @@ export async function registerRoutes(
       prodClient = await prod.connect();
       devClient  = await dev.connect();
 
+      // Ensure cashback tables exist in production (they may not have been migrated there yet)
+      await prodClient.query(`
+        CREATE TABLE IF NOT EXISTS cashback_balances (
+          id SERIAL PRIMARY KEY,
+          prescriber_id INTEGER NOT NULL REFERENCES prescribers(id) ON DELETE CASCADE,
+          month TEXT NOT NULL,
+          gross_sales DECIMAL(10,2) NOT NULL DEFAULT '0',
+          cashback_percentage DECIMAL(5,2) NOT NULL DEFAULT '0',
+          cashback_amount DECIMAL(10,2) NOT NULL DEFAULT '0',
+          status TEXT NOT NULL DEFAULT 'pending',
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      await prodClient.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS cashback_balances_prescriber_month_idx
+        ON cashback_balances(prescriber_id, month)
+      `);
+      await prodClient.query(`
+        CREATE TABLE IF NOT EXISTS cashback_payments (
+          id SERIAL PRIMARY KEY,
+          prescriber_id INTEGER NOT NULL REFERENCES prescribers(id) ON DELETE CASCADE,
+          amount DECIMAL(10,2) NOT NULL,
+          payment_date TEXT NOT NULL,
+          notes TEXT,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+
       // List all tables from production
       const tablesRes = await prodClient.query(
         `SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`
